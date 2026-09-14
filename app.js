@@ -1,6 +1,6 @@
 ﻿/* ============================================================
    تذكير الدواء — تطبيق إدارة الأدوية العربي
-   الإصدار 1.6 — يعمل بالكامل على جهاز المستخدم (Offline First)
+   الإصدار 1.8 — يعمل بالكامل على جهاز المستخدم (Offline First)
    ============================================================ */
 
 "use strict";
@@ -39,6 +39,9 @@ document.addEventListener("DOMContentLoaded", () => {
   requestNotificationPermission();
   registerSW();
   loadWebdavSettings();
+  renderRamadanBanner();
+  renderTravelBanner();
+  webdavAutoSync();
 });
 
 /* ---------- إدارة البيانات (localStorage) ---------- */
@@ -768,8 +771,9 @@ function switchTab(tab) {
   if (tab === "vitals") { renderVitals(); renderVitalsChart(); }
   if (tab === "symptoms") renderSymptoms();
   if (tab === "report") { renderHeatmap(); renderAppointments(); renderAlertHistory(); }
-  if (tab === "encyclopedia") { populateEncyCategories(); renderEncyclopedia(); }
+if (tab === "encyclopedia") { populateEncyCategories(); renderEncyclopedia(); renderHerbs(); }
   if (tab === "vaccines") renderVaccines();
+  if (tab === "report") { renderMonthlyAnalytics(); renderInteractionGraph(); }
   if (tab === "settings") loadSettingsUI();
 
   // إخفاء زر الإضافة في غير الرئيسية
@@ -2245,13 +2249,16 @@ function renderAppointments() {
     const isToday = a.date === today;
     const isPast = a.date < today;
     return `
-      <div class="vitals-card" style="padding:12px 14px;">
+<div class="vitals-card" style="padding:12px 14px;">
         <div class="vitals-header">
           <div>
             <strong>${isToday ? "🔴 " : isPast ? "⚪ " : "🟢 "}${escapeHtml(a.title)}</strong>
             <span>${formatDateArabic(a.date)}${a.time ? " · " + a.time : ""}${a.note ? " · " + escapeHtml(a.note) : ""}</span>
           </div>
-          <button class="icon-btn delete" onclick="deleteAppointment('${a.id}')" title="حذف">🗑️</button>
+          <div style="display:flex;gap:6px;">
+            <button class="icon-btn" onclick="openAppointmentMap('${a.title.replace(/'/g, "\\'")}')" title="فتح في خرائط جوجل">📍</button>
+            <button class="icon-btn delete" onclick="deleteAppointment('${a.id}')" title="حذف">🗑️</button>
+          </div>
         </div>
       </div>`;
   }).join("");
@@ -2741,7 +2748,7 @@ function renderEncyclopedia() {
   if (!container) return;
   const q = (document.getElementById("encySearch").value || "").trim();
   const cat = document.getElementById("encyCategory").value;
-  let drugs = DRUG_ENCYCLOPEDIA || [];
+  let drugs = getFullEncyclopedia();
   if (q) {
     const nq = normalizeName(q);
     drugs = drugs.filter(d =>
@@ -2769,7 +2776,7 @@ function renderEncyclopedia() {
 }
 
 function showDrugDetails(arName) {
-  const d = (typeof DRUG_ENCYCLOPEDIA !== "undefined" ? DRUG_ENCYCLOPEDIA : []).find(x => x.ar === arName);
+  const d = getFullEncyclopedia().find(x => x.ar === arName);
   if (!d) return;
   document.getElementById("drugDetailTitle").textContent = `💊 ${d.ar}`;
   const preg = PREG_LABELS[d.pregnancy] || d.pregnancy;
@@ -3175,20 +3182,25 @@ var code = (pm.pregnancy || "N").charAt(0);
       answer = "لم أجد الدواء المطلوب.";
     }
   }
-  /* 7) ماذا آخذ لـ (عرض) */
+/* 7) ماذا آخذ لـ (عرض) */
   else if (q.indexOf("ماذا آخذ") !== -1 || q.indexOf("ماذا اخذ") !== -1 || q.indexOf("دواء لـ") !== -1 || q.indexOf("دواء ل") !== -1 || q.indexOf("علاج لـ") !== -1 || q.indexOf("علاج ل") !== -1 || q.indexOf("ما هو علاج") !== -1) {
     var symQ = q.replace(/ماذا آخذ لـ/, "").replace(/ماذا اخذ لـ/, "").replace(/ماذا آخذ/, "").replace(/دواء لـ/, "").replace(/دواء ل/, "").replace(/علاج لـ/, "").replace(/علاج ل/, "").replace(/ما هو علاج/, "").replace(/\?/g, "").trim();
-    var symHits = ency.filter(function(d) {
-      return (d.uses && d.uses.indexOf(symQ) !== -1) || (d.cat && d.cat.indexOf(symQ) !== -1);
-    });
-    if (symHits.length > 0) {
-      answer = '<strong>🔎 أدوية مفيدة لـ "' + escapeHtml(symQ) + '" (' + symHits.length + ' نتيجة):</strong><br>' +
-        symHits.slice(0, 10).map(function(d) {
-          return '• <strong>' + escapeHtml(d.ar) + '</strong> — ' + escapeHtml(d.uses).split(",")[0];
-        }).join("<br>") +
-        "<br><br>⚠️ هذه معلومات عامة — التشخيص والعلاج من اختصاص الطبيب.";
+    var symCheck = symptomChecker(symQ);
+    if (symCheck) {
+      answer = symCheck;
     } else {
-      answer = "لم أجد أدوية مرتبطة بـ \"" + escapeHtml(symQ) + "\" في قاعدة البيانات.";
+      var symHits = ency.filter(function(d) {
+        return (d.uses && d.uses.indexOf(symQ) !== -1) || (d.cat && d.cat.indexOf(symQ) !== -1);
+      });
+      if (symHits.length > 0) {
+        answer = '<strong>🔎 أدوية مفيدة لـ "' + escapeHtml(symQ) + '" (' + symHits.length + ' نتيجة):</strong><br>' +
+          symHits.slice(0, 10).map(function(d) {
+            return '• <strong>' + escapeHtml(d.ar) + '</strong> — ' + escapeHtml(d.uses).split(",")[0];
+          }).join("<br>") +
+          "<br><br>⚠️ هذه معلومات عامة — التشخيص والعلاج من اختصاص الطبيب.";
+      } else {
+        answer = "لم أجد أدوية مرتبطة بـ \"" + escapeHtml(symQ) + "\" في قاعدة البيانات.";
+      }
     }
   }
   /* 8) فحص التفاعلات */
@@ -3228,21 +3240,26 @@ var code = (pm.pregnancy || "N").charAt(0);
         match = ency[k]; break;
       }
     }
-    if (match) {
+if (match) {
       answer = drugFullInfo(match);
     } else {
-      var broad = ency.filter(function(d) {
-        return (d.side && d.side.indexOf(q) !== -1) ||
-               (d.uses && d.uses.indexOf(q) !== -1) ||
-               (d.cat && d.cat.indexOf(q) !== -1);
-      });
-      if (broad.length > 0) {
-        answer = '<strong>🔎 أدوية مرتبطة بـ "' + escapeHtml(q) + '" (' + broad.length + ' نتيجة):</strong><br>' +
-          broad.slice(0, 10).map(function(d) {
-            return '• <strong>' + escapeHtml(d.ar) + '</strong> — ' + escapeHtml(d.uses).split(",")[0];
-          }).join("<br>");
+      var symCheck2 = symptomChecker(q);
+      if (symCheck2) {
+        answer = symCheck2;
       } else {
-        answer = "لم أجد معلومات عن \"" + escapeHtml(q) + "\" في قاعدة البيانات. جرّب كتابة الاسم بالعربية أو الإنجليزية.";
+        var broad = ency.filter(function(d) {
+          return (d.side && d.side.indexOf(q) !== -1) ||
+                 (d.uses && d.uses.indexOf(q) !== -1) ||
+                 (d.cat && d.cat.indexOf(q) !== -1);
+        });
+        if (broad.length > 0) {
+          answer = '<strong>🔎 أدوية مرتبطة بـ "' + escapeHtml(q) + '" (' + broad.length + ' نتيجة):</strong><br>' +
+            broad.slice(0, 10).map(function(d) {
+              return '• <strong>' + escapeHtml(d.ar) + '</strong> — ' + escapeHtml(d.uses).split(",")[0];
+            }).join("<br>");
+        } else {
+          answer = "لم أجد معلومات عن \"" + escapeHtml(q) + "\" في قاعدة البيانات. جرّب كتابة الاسم بالعربية أو الإنجليزية.";
+        }
       }
     }
   }
@@ -3470,4 +3487,490 @@ function saveWebdavSettings() {
     pass: (document.getElementById("webdavPass") || {}).value || ""
   };
   localStorage.setItem(STORAGE_KEY + "_webdav", JSON.stringify(s));
+}
+/* ============================================================
+   الإصدار 1.8 — ICS + تشفير WebDAV + رسم التفاعلات + صوت + رمضان + سفر + تحليلات + أعشاب + دواء مخصص
+   ============================================================ */
+
+/* ---------- تصدير ICS للتقويم ---------- */
+function exportICS() {
+  var meds = appData.medications.filter(function(m) { return m.active; });
+  if (meds.length === 0) { showToast("لا توجد أدوية نشطة للتصدير", "error"); return; }
+  function fmtICS(d) { return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"; }
+  var ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//MedReminder//AR//\r\nCALSCALE:GREGORIAN\r\n";
+  meds.forEach(function(med) {
+    med.times.forEach(function(t) {
+      var parts = t.split(":");
+      var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+      var start = new Date(); start.setHours(h, m, 0, 0);
+      var end = new Date(start.getTime() + 30 * 60000);
+      ics += "BEGIN:VEVENT\r\n";
+      ics += "UID:" + med.id + "-" + t + "@medreminder\r\n";
+      ics += "SUMMARY:" + med.name + "\r\n";
+      ics += "DTSTART:" + fmtICS(start) + "\r\n";
+      ics += "DTEND:" + fmtICS(end) + "\r\n";
+      ics += "RRULE:FREQ=DAILY\r\n";
+      ics += "DESCRIPTION:جرعة " + med.name + (med.dosage ? " - " + med.dosage : "") + "\r\n";
+      ics += "END:VEVENT\r\n";
+    });
+  });
+  ics += "END:VCALENDAR\r\n";
+  var blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "مواعيد-الأدوية.ics";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  showToast("✓ تم تصدير مواعيد الأدوية — افتح الملف في أي تقويم", "success");
+}
+
+/* ---------- تشفير WebDAV (AES-GCM عبر WebCrypto) ---------- */
+async function webdavEncryptData(data, passphrase) {
+  var enc = new TextEncoder();
+  var keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+  var key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: enc.encode("med-reminder-salt-v1"), iterations: 100000, hash: "SHA-256" },
+    keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  var iv = crypto.getRandomValues(new Uint8Array(12));
+  var cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(JSON.stringify(data)));
+  function b64(buf) {
+    var bytes = new Uint8Array(buf);
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  return b64(iv) + ":" + b64(cipher);
+}
+async function webdavDecryptData(payload, passphrase) {
+  var enc = new TextEncoder();
+  var parts = payload.split(":");
+  if (parts.length !== 2) throw new Error("صيغة مشفرة غير صحيحة");
+  function unb64(s) {
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  var iv = unb64(parts[0]);
+  var cipher = unb64(parts[1]);
+  var keyMaterial = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+  var key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: enc.encode("med-reminder-salt-v1"), iterations: 100000, hash: "SHA-256" },
+    keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  var plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, cipher);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* WebDAV مع تشفير اختياري */
+function webdavGetPassphrase() {
+  var el = document.getElementById("webdavEncPass");
+  return el ? el.value.trim() : "";
+}
+function webdavSave() {
+  var creds = webdavGetCredentials();
+  if (!creds) return;
+  var status = document.getElementById("webdavStatus");
+  var pass = webdavGetPassphrase();
+  if (status) status.textContent = "⏳ جاري الرفع" + (pass ? " (مشفر)..." : "...");
+  var body = JSON.stringify(appData);
+  var doPut = function(finalBody) {
+    fetch(creds.url, {
+      method: "PUT",
+      headers: { "Authorization": creds.auth, "Content-Type": "application/json" },
+      body: finalBody
+    }).then(function(r) {
+      if (r.ok || r.status === 201 || r.status === 204) {
+        if (status) status.textContent = "✅ تم الرفع" + (pass ? " مشفراً" : "") + " — " + new Date().toLocaleTimeString("ar-EG");
+        showToast("✓ تم رفع البيانات إلى السحابة", "success");
+      } else { throw new Error("HTTP " + r.status); }
+    }).catch(function(e) {
+      if (status) status.textContent = "❌ فشل الرفع: " + e.message;
+      showToast("فشل الرفع — تحقق من الرابط والبيانات", "error");
+    });
+  };
+  if (pass) {
+    webdavEncryptData(appData, pass).then(function(enc) {
+      doPut(JSON.stringify({ enc: true, payload: enc }));
+    }).catch(function() { showToast("فشل التشفير", "error"); });
+  } else {
+    doPut(body);
+  }
+}
+function webdavLoad() {
+  var creds = webdavGetCredentials();
+  if (!creds) return;
+  var status = document.getElementById("webdavStatus");
+  var pass = webdavGetPassphrase();
+  if (status) status.textContent = "⏳ جاري التنزيل...";
+  fetch(creds.url, { method: "GET", headers: { "Authorization": creds.auth } })
+    .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(function(data) {
+      var applyData = function(d) {
+        if (!d || !d.medications) throw new Error("صيغة البيانات غير صحيحة");
+        appData = {
+          medications: d.medications || [], family: d.family || [],
+          settings: d.settings || { notifications: false }, vitals: d.vitals || [],
+          symptoms: d.symptoms || [], appointments: d.appointments || [],
+          contacts: d.contacts || { doctor: "", pharmacy: "", emergency: "" },
+          vaccinations: d.vaccinations || [], pin: d.pin || "", tts: d.tts || false,
+          alertHistory: d.alertHistory || []
+        };
+        saveData(); loadData(); populateFamilySelect(); renderAll();
+        if (status) status.textContent = "✅ تم التنزيل — " + new Date().toLocaleTimeString("ar-EG");
+        showToast("✓ تم تنزيل البيانات من السحابة", "success");
+      };
+      if (data && data.enc && data.payload) {
+        if (!pass) throw new Error("البيانات مشفرة — أدخل كلمة مرور التشفير");
+        webdavDecryptData(data.payload, pass).then(applyData).catch(function(e) {
+          if (status) status.textContent = "❌ فشل فك التشفير: " + e.message;
+          showToast("فشل فك التشفير — كلمة المرور غير صحيحة", "error");
+        });
+      } else {
+        applyData(data);
+      }
+    })
+    .catch(function(e) {
+      if (status) status.textContent = "❌ فشل التنزيل: " + e.message;
+      showToast("فشل التنزيل — تحقق من الرابط والبيانات", "error");
+    });
+}
+
+/* مزامنة تلقائية عند فتح التطبيق */
+function webdavAutoSync() {
+  try {
+    var s = JSON.parse(localStorage.getItem(STORAGE_KEY + "_webdav") || "{}");
+    if (!s.autoSync || !s.url || !s.user || !s.pass) return;
+    document.getElementById("webdavUrl").value = s.url || "";
+    document.getElementById("webdavUser").value = s.user || "";
+    document.getElementById("webdavPass").value = s.pass || "";
+    document.getElementById("webdavEncPass").value = s.encPass || "";
+    var cb = document.getElementById("webdavAuto");
+    if (cb) cb.checked = !!s.autoSync;
+    webdavLoad();
+  } catch (e) {}
+}
+
+/* ---------- رسم تفاعلات الأدوية الحالية ---------- */
+function renderInteractionGraph() {
+  var container = document.getElementById("interactionGraph");
+  if (!container) return;
+  var meds = appData.medications.filter(function(m) { return m.active; });
+  if (meds.length < 2) {
+    container.innerHTML = '<div class="interaction-safe">أضف دواءين نشطين على الأقل لعرض رسم التفاعلات</div>';
+    return;
+  }
+  var ints = (typeof DRUG_INTERACTIONS_DB !== "undefined" ? DRUG_INTERACTIONS_DB : []);
+  var builtIn = (typeof DRUG_INTERACTIONS !== "undefined" ? DRUG_INTERACTIONS : []);
+  var edges = [];
+  for (var i = 0; i < meds.length; i++) {
+    for (var j = i + 1; j < meds.length; j++) {
+      var a = meds[i].name, b = meds[j].name;
+      var sev = null;
+      for (var k = 0; k < ints.length; k++) {
+        if ((ints[k].a.indexOf(a) !== -1 && ints[k].b.indexOf(b) !== -1) ||
+            (ints[k].b.indexOf(a) !== -1 && ints[k].a.indexOf(b) !== -1)) { sev = ints[k].severity; break; }
+      }
+      if (!sev) {
+        for (var q = 0; q < builtIn.length; q++) {
+          if ((builtIn[q][0].indexOf(a) !== -1 && builtIn[q][1].indexOf(b) !== -1) ||
+              (builtIn[q][1].indexOf(a) !== -1 && builtIn[q][0].indexOf(b) !== -1)) { sev = "high"; break; }
+        }
+      }
+      if (sev) edges.push({ a: i, b: j, sev: sev });
+    }
+  }
+  var W = 320, H = 260, cx = W / 2, cy = H / 2, R = 95;
+  var nodes = meds.map(function(med, idx) {
+    var ang = (2 * Math.PI * idx) / meds.length - Math.PI / 2;
+    return { x: cx + R * Math.cos(ang), y: cy + R * Math.sin(ang), name: med.name };
+  });
+  var lines = edges.map(function(e) {
+    var color = e.sev === "high" ? "#ef4444" : "#f59e0b";
+    return '<line x1="' + nodes[e.a].x + '" y1="' + nodes[e.a].y + '" x2="' + nodes[e.b].x + '" y2="' + nodes[e.b].y + '" stroke="' + color + '" stroke-width="2.5" stroke-dasharray="5,3"/>';
+  }).join("");
+  var circles = nodes.map(function(n) {
+    return '<circle cx="' + n.x + '" cy="' + n.y + '" r="26" fill="#0d9488" opacity="0.9"/>' +
+      '<text x="' + n.x + '" y="' + (n.y + 4) + '" font-size="8" text-anchor="middle" fill="#fff" font-weight="bold">' + escapeHtml(n.name.length > 14 ? n.name.slice(0, 13) + "…" : n.name) + '</text>';
+  }).join("");
+  var legend = edges.length === 0
+    ? '<div style="text-align:center;font-size:0.85rem;color:var(--success);margin-top:6px;">✅ لا توجد تفاعلات معروفة بين أدويتك الحالية</div>'
+    : '<div style="text-align:center;font-size:0.8rem;margin-top:6px;">🔴 خطير &nbsp;·&nbsp; 🟡 متوسط &nbsp;·&nbsp; عدد التفاعلات: ' + edges.length + '</div>';
+  container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:340px;display:block;margin:0 auto;">' + lines + circles + '</svg>' + legend;
+}
+
+/* ---------- إدخال صوتي للمساعد ---------- */
+function startVoiceInput() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast("المتصفح لا يدعم الإدخال الصوتي — استخدم Chrome", "error"); return; }
+  var rec = new SR();
+  rec.lang = "ar-SA";
+  rec.interimResults = false;
+  rec.onresult = function(e) {
+    var text = e.results[0][0].transcript;
+    document.getElementById("assistantInput").value = text;
+    askAssistant();
+  };
+  rec.onerror = function() { showToast("لم يُسمع صوت واضح — حاول مجدداً", "error"); };
+  rec.start();
+  showToast("🎤 استمع... تحدث الآن", "success");
+}
+
+/* ---------- رد صوتي للمساعد ---------- */
+function speakAssistantAnswer() {
+  var el = document.getElementById("assistantResponse");
+  if (!el || !el.textContent || el.textContent.indexOf("🤖") === -1) { showToast("اسأل المساعد أولاً", "error"); return; }
+  if (!("speechSynthesis" in window)) { showToast("المتصفح لا يدعم النطق", "error"); return; }
+  var text = el.textContent.replace(/🤖/g, "").replace(/[🔴🟡🟢⚪⛔⚠️✅💊💧🍽️🔗🏷️👶👴🤰🔎•]/g, "");
+  var msg = new SpeechSynthesisUtterance(text);
+  msg.lang = "ar-SA";
+  msg.rate = 0.95;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(msg);
+}
+
+/* ---------- وضع رمضان ---------- */
+function toggleRamadanMode() {
+  var cb = document.getElementById("ramadanToggle");
+  if (!cb) return;
+  appData.settings.ramadanMode = cb.checked;
+  var off = document.getElementById("ramadanOffset");
+  if (off) appData.settings.ramadanOffset = parseInt(off.value, 10) || 0;
+  saveData();
+  renderRamadanBanner();
+  showToast(cb.checked ? "🌙 وضع رمضان مفعل" : "تم إيقاف وضع رمضان", "success");
+}
+function renderRamadanBanner() {
+  var banner = document.getElementById("ramadanBanner");
+  if (!banner) return;
+  var on = appData.settings.ramadanMode;
+  var off = appData.settings.ramadanOffset || 0;
+  if (!on) { banner.classList.add("hidden"); return; }
+  banner.classList.remove("hidden");
+  var meds = appData.medications.filter(function(m) { return m.active; });
+  var html = '<div style="font-weight:700;margin-bottom:6px;">🌙 وضع رمضان مفعل — أوقات الأدوية المعدلة (إزاحة ' + off + ' ساعة)</div>';
+  if (meds.length === 0) {
+    html += '<div style="font-size:0.8rem;color:var(--text-muted);">لا توجد أدوية نشطة</div>';
+  } else {
+    meds.forEach(function(m) {
+      var times = m.times.map(function(t) { return adjustTime(t, off); });
+      html += '<div style="font-size:0.85rem;margin-bottom:4px;">💊 ' + escapeHtml(m.name) + ': <strong>' + times.join("، ") + '</strong></div>';
+    });
+  }
+  banner.innerHTML = html;
+}
+function adjustTime(t, offsetHours) {
+  var parts = t.split(":");
+  var mins = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + (offsetHours || 0) * 60;
+  mins = ((mins % 1440) + 1440) % 1440;
+  var h = Math.floor(mins / 60), m = mins % 60;
+  return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+}
+
+/* ---------- وضع السفر (تعديل المنطقة الزمنية) ---------- */
+function toggleTravelMode() {
+  var cb = document.getElementById("travelToggle");
+  if (!cb) return;
+  appData.settings.travelMode = cb.checked;
+  var off = document.getElementById("travelOffset");
+  if (off) appData.settings.travelOffset = parseInt(off.value, 10) || 0;
+  saveData();
+  renderTravelBanner();
+  showToast(cb.checked ? "✈️ وضع السفر مفعل" : "تم إيقاف وضع السفر", "success");
+}
+function renderTravelBanner() {
+  var banner = document.getElementById("travelBanner");
+  if (!banner) return;
+  var on = appData.settings.travelMode;
+  var off = appData.settings.travelOffset || 0;
+  if (!on) { banner.classList.add("hidden"); return; }
+  banner.classList.remove("hidden");
+  var meds = appData.medications.filter(function(m) { return m.active; });
+  var html = '<div style="font-weight:700;margin-bottom:6px;">✈️ وضع السفر — المنطقة الزمنية الجديدة (إزاحة ' + (off > 0 ? "+" : "") + off + ' ساعة)</div>';
+  if (meds.length === 0) {
+    html += '<div style="font-size:0.8rem;color:var(--text-muted);">لا توجد أدوية نشطة</div>';
+  } else {
+    meds.forEach(function(m) {
+      var times = m.times.map(function(t) { return adjustTime(t, off); });
+      html += '<div style="font-size:0.85rem;margin-bottom:4px;">💊 ' + escapeHtml(m.name) + ': <strong>' + times.join("، ") + '</strong></div>';
+    });
+  }
+  banner.innerHTML = html;
+}
+
+/* ---------- تحليلات شهرية ---------- */
+function renderMonthlyAnalytics() {
+  var container = document.getElementById("monthlyAnalytics");
+  if (!container) return;
+  var days = [];
+  var today = new Date();
+  var totalAll = 0, takenAll = 0;
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(today);
+    d.setDate(today.getDate() - i);
+    var dateStr = d.toISOString().slice(0, 10);
+    var dayNum = d.getDay();
+    var dTotal = 0, dTaken = 0;
+    appData.medications.forEach(function(med) {
+      if (!med.active || !med.days.includes(dayNum)) return;
+      med.times.forEach(function(t) {
+        dTotal++;
+        if (med.log && med.log[dateStr + "_" + t]) dTaken++;
+      });
+    });
+    totalAll += dTotal; takenAll += dTaken;
+    days.push({ date: dateStr, total: dTotal, taken: dTaken });
+  }
+  var pct = totalAll > 0 ? Math.round((takenAll / totalAll) * 100) : 0;
+  var bestDay = null, worstDay = null;
+  days.forEach(function(d) {
+    if (d.total === 0) return;
+    var dp = d.taken / d.total;
+    if (!bestDay || dp > bestDay.p) bestDay = { date: d.date, p: dp };
+    if (!worstDay || dp < worstDay.p) worstDay = { date: d.date, p: dp };
+  });
+  var missedPattern = {};
+  appData.medications.forEach(function(med) {
+    if (!med.active) return;
+    med.times.forEach(function(t) {
+      var missed = 0;
+      days.forEach(function(d) {
+        var dn = new Date(d.date + "T00:00:00").getDay();
+        if (!med.days.includes(dn)) return;
+        if (!(med.log && med.log[d.date + "_" + t])) missed++;
+      });
+      if (missed > 0) missedPattern[t] = (missedPattern[t] || 0) + missed;
+    });
+  });
+  var worstTime = null;
+  Object.keys(missedPattern).forEach(function(t) {
+    if (!worstTime || missedPattern[t] > missedPattern[worstTime]) worstTime = t;
+  });
+  var html = '<div class="report-card"><div class="report-header"><h3>📊 تحليلات آخر 30 يوم</h3><span class="badge" style="font-size:1rem;">' + pct + '%</span></div>' +
+    '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' +
+    '<p style="font-size:0.85rem;color:var(--text-muted);text-align:center;">' + takenAll + ' من ' + totalAll + ' جرعة تم أخذها</p>';
+  if (bestDay) html += '<div style="font-size:0.85rem;margin-top:8px;">🏆 أفضل يوم: <strong>' + formatDateArabic(bestDay.date) + '</strong> (' + Math.round(bestDay.p * 100) + '%)</div>';
+  if (worstDay) html += '<div style="font-size:0.85rem;">⚠️ أصعب يوم: <strong>' + formatDateArabic(worstDay.date) + '</strong> (' + Math.round(worstDay.p * 100) + '%)</div>';
+  if (worstTime) html += '<div style="font-size:0.85rem;">⏰ أكثر وقت تُنسى فيه الجرعة: <strong>' + worstTime + '</strong></div>';
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/* ---------- فحص الأعراض (في المساعد) ---------- */
+function symptomChecker(q) {
+  var rules = [
+    { kw: ["صداع", "راسي"], advice: "الصداع المتكرر قد يكون بسبب الإجهاد أو الجفاف أو قلة النوم. إذا استمر أكثر من 3 أيام أو كان شديداً فجأة، راجع الطبيب." },
+    { kw: ["حرارة", "حمى", "سخونة"], advice: "الحمى (فوق 38°) قد تشير لعدوى. اشرب سوائل كثيراً، واستخدم خافض حرارة (باراسيتامول) إذا لزم. إذا استمرت أكثر من 48 ساعة أو صاحبتها صعوبة تنفس، راجع الطبيب فوراً." },
+    { kw: ["سعال", "كحة"], advice: "السعال الجاف غالباً فيروسي. إذا صاحبه بلغم ملون أو دم أو استمر أكثر من أسبوعين، راجع الطبيب." },
+    { kw: ["معدة", "بطن", "غثيان", "قيء"], advice: "اضطراب المعدة شائع. اشرب سوائل، وتجنب الأكل الدسم. إذا صاحبه دم أو ألم شديد أو استمر أكثر من يومين، راجع الطبيب." },
+    { kw: ["إسهال"], advice: "الإسهال يسبب جفافاً — عوّض السوائل والأملاح. إذا استمر أكثر من 3 أيام أو صاحبه دم أو حرارة عالية، راجع الطبيب." },
+    { kw: ["إمساك"], advice: "زد الألياف والماء، ومارس الحركة. إذا استمر أكثر من أسبوع أو صاحبه ألم شديد، راجع الطبيب." },
+    { kw: ["ضغط", "دوار", "دوخة"], advice: "الدوخة قد تكون بسبب انخفاض الضغط أو الجفاف أو دواء. اجلس فوراً، واشرب ماء. إذا تكررت أو صاحبتها أعراض أخرى، راجع الطبيب." },
+    { kw: ["قلب", "خفقان", "نبض"], advice: "الخفقان المتكرر يستدعي فحص طبي. إذا صاحبه ألم صدر أو ضيق تنفس أو إغماء، اتصل بالطوارئ فوراً." },
+    { kw: ["نوم", "أرق"], advice: "حاول النوم في وقت ثابت، وقلل الكافيين قبل النوم. إذا استمر الأرق أكثر من أسبوعين، راجع الطبيب." },
+    { kw: ["جلد", "طفح", "حكة"], advice: "الطفح الجلدي قد يكون حساسية أو عدوى. إذا انتشر بسرعة أو صاحبه تورم في الوجه أو صعوبة تنفس، توجه للطوارئ فوراً." }
+  ];
+  for (var i = 0; i < rules.length; i++) {
+    for (var j = 0; j < rules[i].kw.length; j++) {
+      if (q.indexOf(rules[i].kw[j]) !== -1) {
+        return '<strong>🩺 فحص الأعراض:</strong><br>' + rules[i].advice +
+          '<br><br>⚠️ هذا فحص مبدئي وليس تشخيصاً — استشر طبيبك دائماً.';
+      }
+    }
+  }
+  return null;
+}
+
+/* ---------- قسم الأعشاب ---------- */
+var HERBS = [
+  { ar: "النعناع", en: "Mint", uses: "عسر الهضم، الغثيان، القولون العصبي", side: "حموضة نادرة، تفاعل مع أدوية الحموضة", note: "يُشرب كشاي بعد الأكل" },
+  { ar: "البابونج", en: "Chamomile", uses: "الأرق، القلق، اضطراب المعدة", side: "حساسية لدى من يتحسس من عائلة الأقحوان", note: "كوب قبل النوم يساعد على الاسترخاء" },
+  { ar: "الزنجبيل", en: "Ginger", uses: "الغثيان، الدوخة، الالتهابات", side: "حرقة، تفاعل مع مميعات الدم", note: "يُحذر مع الوارفارين والأسبرين" },
+  { ar: "الكركم", en: "Turmeric", uses: "الالتهابات، المفاصل، الهضم", side: "اضطراب معدة، تفاعل مع مميعات الدم", note: "يُفضل مع الفلفل الأسود لزيادة الامتصاص" },
+  { ar: "الحلبة", en: "Fenugreek", uses: "سكر الدم، الرضاعة، الهضم", side: "رائحة عرق، انخفاض سكر الدم", note: "تُحذر مع أدوية السكري — قد تخفض السكر كثيراً" },
+  { ar: "القرفة", en: "Cinnamon", uses: "سكر الدم، الكوليسترول", side: "تهيج فم، تفاعل مع أدوية السكري", note: "الكمية الكبيرة قد تضر الكبد" },
+  { ar: "الزعتر", en: "Thyme", uses: "السعال، التهاب الحلق، الهضم", side: "حساسية نادرة", note: "غرغرة بماء الزعتر مفيدة للحلق" },
+  { ar: "الميرمية", en: "Sage", uses: "التهابات الفم، الهضم، التعرق", side: "كميات كبيرة قد تسبب تشنجات", note: "تُحذر في الحمل" },
+  { ar: "اليانسون", en: "Anise", uses: "الغازات، الهضم، الرضاعة", side: "حساسية نادرة", note: "مفيد للرضاعة لكن باعتدال" },
+  { ar: "الشمر", en: "Fennel", uses: "الغازات، الهضم، الرضاعة", side: "حساسية نادرة", note: "يشبه اليانسون في الفوائد" },
+  { ar: "إكليل الجبل", en: "Rosemary", uses: "الذاكرة، الهضم، مضاد أكسدة", side: "تفاعل مع مميعات الدم وضغط الدم", note: "يُحذر مع أدوية الضغط" },
+  { ar: "العرقسوس", en: "Licorice", uses: "المعدة، السعال", side: "ارتفاع ضغط الدم، نقص البوتاسيوم", note: "⛔ يُمنع مع أدوية الضغط والقلب والكلى" }
+];
+function renderHerbs() {
+  var container = document.getElementById("herbsList");
+  if (!container) return;
+  container.innerHTML = HERBS.map(function(h) {
+    return '<div class="vitals-card" style="padding:10px 12px;margin-bottom:8px;">' +
+      '<div style="font-weight:700;">🌿 ' + escapeHtml(h.ar) + ' <span style="font-weight:400;color:var(--text-muted);font-size:0.8rem;">(' + escapeHtml(h.en) + ')</span></div>' +
+      '<div style="font-size:0.82rem;margin-top:4px;"><strong>💊 الاستخدامات:</strong> ' + escapeHtml(h.uses) + '</div>' +
+      '<div style="font-size:0.82rem;"><strong>⚠️ التحذيرات:</strong> ' + escapeHtml(h.side) + '</div>' +
+      '<div style="font-size:0.78rem;color:var(--text-muted);">📝 ' + escapeHtml(h.note) + '</div></div>';
+  }).join("");
+}
+
+/* ---------- دواء مخصص (يضيفه المستخدم) ---------- */
+function getCustomDrugs() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY + "_customDrugs") || "[]"); } catch (e) { return []; }
+}
+function saveCustomDrugs(list) {
+  localStorage.setItem(STORAGE_KEY + "_customDrugs", JSON.stringify(list));
+}
+function addCustomDrug() {
+  var ar = document.getElementById("customAr").value.trim();
+  var en = document.getElementById("customEn").value.trim();
+  var uses = document.getElementById("customUses").value.trim();
+  var dosage = document.getElementById("customDosage").value.trim();
+  if (!ar || !en) { showToast("أدخل الاسم العربي والإنجليزي على الأقل", "error"); return; }
+  var list = getCustomDrugs();
+  list.push({
+    ar: ar, en: en, brands: [], cat: "دواء مخصص",
+    uses: uses || "غير محدد", dosage: dosage || "حسب وصفة الطبيب",
+    side: "غير محدد", contra: "استشر طبيبك", pregnancy: "N",
+    children: "استشر طبيبك", elderly: "استشر طبيبك",
+    interactions: "غير محدد", food: "غير محدد",
+    dialects: { eg: ar, gulf: ar, lev: ar }
+  });
+  saveCustomDrugs(list);
+  ["customAr", "customEn", "customUses", "customDosage"].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = "";
+  });
+  renderEncyclopedia();
+  showToast("✓ تمت إضافة الدواء المخصص", "success");
+}
+function getFullEncyclopedia() {
+  var base = (typeof DRUG_ENCYCLOPEDIA !== "undefined" ? DRUG_ENCYCLOPEDIA : []);
+  return base.concat(getCustomDrugs());
+}
+
+/* ---------- فتح موعد الطبيب في خرائط جوجل ---------- */
+function openAppointmentMap(title) {
+  var q = encodeURIComponent(title + " عيادة");
+  window.open("https://www.google.com/maps/search/?api=1&query=" + q, "_blank");
+}
+
+/* ---------- حفظ إعدادات WebDAV (مع التشفير والمزامنة التلقائية) ---------- */
+function saveWebdavSettings() {
+  var s = {
+    url: (document.getElementById("webdavUrl") || {}).value || "",
+    user: (document.getElementById("webdavUser") || {}).value || "",
+    pass: (document.getElementById("webdavPass") || {}).value || "",
+    encPass: (document.getElementById("webdavEncPass") || {}).value || "",
+    autoSync: !!(document.getElementById("webdavAuto") || {}).checked
+  };
+  localStorage.setItem(STORAGE_KEY + "_webdav", JSON.stringify(s));
+}
+function loadWebdavSettings() {
+  try {
+    var s = JSON.parse(localStorage.getItem(STORAGE_KEY + "_webdav") || "{}");
+    var u = document.getElementById("webdavUrl");
+    var user = document.getElementById("webdavUser");
+    var p = document.getElementById("webdavPass");
+    var ep = document.getElementById("webdavEncPass");
+    var cb = document.getElementById("webdavAuto");
+    if (u) u.value = s.url || "";
+    if (user) user.value = s.user || "";
+    if (p) p.value = s.pass || "";
+    if (ep) ep.value = s.encPass || "";
+    if (cb) cb.checked = !!s.autoSync;
+  } catch (e) {}
 }

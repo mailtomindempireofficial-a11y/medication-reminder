@@ -1119,6 +1119,8 @@
 
     <!-- أدوية اليوم -->
     <section id="todaySection">
+      <div id="ramadanBanner" class="hidden report-card" style="margin-bottom:12px;border-right:4px solid #0d9488;"></div>
+      <div id="travelBanner" class="hidden report-card" style="margin-bottom:12px;border-right:4px solid #6366f1;"></div>
       <div class="section-title">
         <h2>📋 أدوية اليوم <span class="badge" id="todayCount">0</span></h2>
       </div>
@@ -1193,6 +1195,14 @@
       </div>
       <div id="reportContent"></div>
       <div class="section-title" style="margin-top:16px;">
+        <h3>📊 تحليلات آخر 30 يوم</h3>
+      </div>
+      <div id="monthlyAnalytics"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🕸️ تفاعلات أدويتك الحالية</h3>
+      </div>
+      <div id="interactionGraph"></div>
+      <div class="section-title" style="margin-top:16px;">
         <h3>🗓️ خريطة الالتزام (آخر 4 أسابيع)</h3>
       </div>
       <div id="heatmap"></div>
@@ -1251,8 +1261,24 @@
       <div class="filter-row">
         <input type="text" id="assistantInput" placeholder="اسأل: ما هو دواء ميتفورمين؟ أو: وارفارين مع إيبوبروفين؟" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
         <button class="btn btn-primary" onclick="askAssistant()">اسأل</button>
+        <button class="btn btn-outline" onclick="startVoiceInput()" title="إدخال صوتي">🎤</button>
+        <button class="btn btn-outline" onclick="speakAssistantAnswer()" title="قراءة الإجابة">🔊</button>
       </div>
       <div id="assistantResponse"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🌿 الأعشاب والطب البديل</h3>
+      </div>
+      <div id="herbsList"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>➕ إضافة دواء مخصص</h3>
+      </div>
+      <div class="report-card">
+        <input type="text" id="customAr" placeholder="الاسم بالعربية *" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+        <input type="text" id="customEn" placeholder="الاسم بالإنجليزية *" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+        <input type="text" id="customUses" placeholder="الاستخدامات" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+        <input type="text" id="customDosage" placeholder="الجرعة" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+        <button class="btn btn-primary btn-block" onclick="addCustomDrug()">➕ إضافة الدواء</button>
+      </div>
     </section>
 
     <!-- التطعيمات -->
@@ -1326,11 +1352,42 @@
           <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">يفتح واتساب/تيليجرام برسالة جاهزة — اضغط إرسال لتأكيد التذكير.</p>
         </div>
         <div class="settings-group">
+          <h4>📅 التقويم</h4>
+          <button class="btn btn-outline btn-block" onclick="exportICS()">📅 تصدير مواعيد الأدوية إلى التقويم (ICS)</button>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">يفتح في Google Calendar / Outlook / أي تطبيق تقويم — تذكيرات مزدوجة.</p>
+        </div>
+        <div class="settings-group">
+          <h4>🌙 وضع رمضان</h4>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:8px;cursor:pointer;">
+            <input type="checkbox" id="ramadanToggle" onchange="toggleRamadanMode()" style="width:18px;height:18px;"> تفعيل وضع رمضان
+          </label>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:0.85rem;">إزاحة الساعات:</span>
+            <input type="number" id="ramadanOffset" value="0" min="-12" max="12" onchange="toggleRamadanMode()" style="width:70px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          </div>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">مثال: أدويتك الساعة 12 ظهراً — ضع إزاحة -4 لتصبح 8 صباحاً (قبل الإمساك).</p>
+        </div>
+        <div class="settings-group">
+          <h4>✈️ وضع السفر</h4>
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;margin-bottom:8px;cursor:pointer;">
+            <input type="checkbox" id="travelToggle" onchange="toggleTravelMode()" style="width:18px;height:18px;"> تفعيل وضع السفر
+          </label>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:0.85rem;">فرق المنطقة الزمنية (ساعات):</span>
+            <input type="number" id="travelOffset" value="0" min="-12" max="14" onchange="toggleTravelMode()" style="width:70px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          </div>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">مثال: سافرت من السعودية إلى لندن — الفرق -3 ساعات.</p>
+        </div>
+        <div class="settings-group">
           <h4>☁️ مزامنة سحابية (WebDAV)</h4>
           <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;">يعمل مع Nextcloud و ownCloud. مثال الرابط: <span style="direction:ltr;display:inline-block;">https://your-cloud.com/remote.php/dav/files/USER/med-reminder.json</span></p>
           <input type="text" id="webdavUrl" placeholder="رابط WebDAV الكامل..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;direction:ltr;margin-bottom:8px;" onblur="saveWebdavSettings()">
           <input type="text" id="webdavUser" placeholder="اسم المستخدم" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;margin-bottom:8px;" onblur="saveWebdavSettings()">
           <input type="password" id="webdavPass" placeholder="كلمة المرور / رمز التطبيق" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;margin-bottom:8px;" onblur="saveWebdavSettings()">
+          <input type="password" id="webdavEncPass" placeholder="🔐 كلمة مرور التشفير (اختياري — لتشفير البيانات قبل الرفع)" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;margin-bottom:8px;" onblur="saveWebdavSettings()">
+          <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-bottom:8px;cursor:pointer;">
+            <input type="checkbox" id="webdavAuto" onchange="saveWebdavSettings()" style="width:18px;height:18px;"> 🔄 مزامنة تلقائية عند فتح التطبيق
+          </label>
           <button class="btn btn-primary btn-block" onclick="webdavSave()" style="margin-bottom:8px;">⬆️ رفع البيانات إلى السحابة</button>
           <button class="btn btn-outline btn-block" onclick="webdavLoad()" style="margin-bottom:8px;">⬇️ تنزيل البيانات من السحابة</button>
           <button class="btn btn-outline btn-block" onclick="webdavTest()" style="margin-bottom:8px;">🔌 اختبار الاتصال</button>
@@ -1340,7 +1397,7 @@
           <h4>حول التطبيق</h4>
           <p style="font-size:0.85rem;color:var(--text-muted);">
             تذكير الدواء — تطبيق عربي مجاني لإدارة الأدوية. بياناتك تبقى على جهازك فقط.
-            <br>الإصدار 1.6
+            <br>الإصدار 1.8
           </p>
         </div>
       </div>

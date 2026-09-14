@@ -1,0 +1,27 @@
+{
+  "name": "تذكير الدواء — منظم أدويتك الذكي",
+  "short_name": "تذكير الدواء",
+  "description": "تطبيق عربي ذكي لإدارة أدويتك وأدوية عائلتك مع تذكيرات وتقارير التزام",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0fdfa",
+  "theme_color": "#0d9488",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

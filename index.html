@@ -1,0 +1,1758 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="تذكير الدواء — تطبيق عربي ذكي لإدارة أدويتك وأدوية عائلتك مع تذكيرات وتقارير التزام">
+  <meta name="theme-color" content="#0d9488">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="تذكير الدواء">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <title>تذكير الدواء — منظم أدويتك الذكي</title>
+  <style>
+    /* ===== المتغيرات والأساسيات ===== */
+    :root {
+      --primary: #0d9488;
+      --primary-dark: #0f766e;
+      --primary-light: #ccfbf1;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --bg: #f0fdfa;
+      --card: #ffffff;
+      --text: #134e4a;
+      --text-muted: #5b7d7a;
+      --border: #e2f3f0;
+      --shadow: 0 2px 12px rgba(13, 148, 136, 0.08);
+      --shadow-lg: 0 8px 30px rgba(13, 148, 136, 0.15);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Segoe UI", "Tajawal", "Cairo", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    /* ===== الهيدر ===== */
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #fff;
+      padding: 20px 20px 70px;
+      position: relative;
+      overflow: hidden;
+    }
+    header::after {
+      content: "";
+      position: absolute;
+      top: -60px; left: -60px;
+      width: 200px; height: 200px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 50%;
+    }
+    header::before {
+      content: "";
+      position: absolute;
+      bottom: -80px; right: -40px;
+      width: 180px; height: 180px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 50%;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+    .logo-icon {
+      width: 42px; height: 42px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+    .date-display {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      background: rgba(255,255,255,0.15);
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+    .greeting {
+      position: relative;
+      z-index: 2;
+      margin-top: 18px;
+    }
+    .greeting h1 { font-size: 1.5rem; font-weight: 800; }
+    .greeting p { opacity: 0.9; font-size: 0.95rem; margin-top: 4px; }
+    /* ===== بطاقة ملخص اليوم ===== */
+    .summary-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      margin: -45px 16px 20px;
+      padding: 18px;
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+    .summary-item { padding: 8px 4px; }
+    .summary-item .num {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .summary-item .label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .summary-item.done .num { color: var(--success); }
+    .summary-item.missed .num { color: var(--danger); }
+    /* ===== المحتوى ===== */
+    main { padding: 0 16px 100px; max-width: 640px; margin: 0 auto; }
+    section { margin-bottom: 26px; }
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .section-title h2 {
+      font-size: 1.1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title .badge {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 700;
+    }
+    /* ===== بطاقات الأدوية ===== */
+    .med-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 12px;
+      border-right: 5px solid var(--primary);
+      transition: transform 0.15s ease;
+      animation: slideIn 0.3s ease;
+    }
+    .med-card:active { transform: scale(0.99); }
+    .med-card.danger { border-right-color: var(--danger); }
+    .med-card.warning { border-right-color: var(--accent); }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .med-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .med-name {
+      font-weight: 800;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .med-form {
+      font-size: 0.7rem;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+    .med-dosage {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .med-times {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .time-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .time-chip .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #cbd5d5;
+    }
+    .time-chip.taken {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #166534;
+    }
+    .time-chip.taken .status-dot { background: var(--success); }
+    .time-chip.missed {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+    .time-chip.missed .status-dot { background: var(--danger); }
+    .time-chip.upcoming { border-style: dashed; }
+    .time-chip.upcoming .status-dot { background: var(--accent); }
+    .med-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .med-actions { display: flex; gap: 6px; }
+    .icon-btn {
+      background: none;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      transition: background 0.15s;
+      color: var(--text-muted);
+    }
+    .icon-btn:hover { background: var(--bg); }
+    .icon-btn.delete:hover { color: var(--danger); background: #fee2e2; }
+    /* ===== الحالة الفارغة ===== */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 2px dashed var(--border);
+    }
+    .empty-state .emoji { font-size: 3rem; }
+    .empty-state h3 { margin: 12px 0 6px; font-size: 1.1rem; }
+    .empty-state p { color: var(--text-muted); font-size: 0.9rem; }
+    /* ===== الأزرار ===== */
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-outline {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+    }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-block { width: 100%; }
+    .fab {
+      position: fixed;
+      bottom: 90px;
+      left: 20px;
+      width: 58px; height: 58px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      font-size: 1.8rem;
+      box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+      cursor: pointer;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+    .fab:active { transform: scale(0.9) rotate(90deg); }
+    /* ===== الشريط السفلي ===== */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+      z-index: 100;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    }
+    .nav-item {
+      background: none;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 12px;
+      border-radius: 10px;
+      font-family: inherit;
+      transition: color 0.15s;
+    }
+    .nav-item .nav-icon { font-size: 1.3rem; }
+    .nav-item.active { color: var(--primary); font-weight: 800; }
+    /* ===== النوافذ المنبثقة ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--card);
+      width: 100%;
+      max-width: 640px;
+      border-radius: 24px 24px 0 0;
+      padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-header h3 { font-size: 1.2rem; font-weight: 800; }
+    .modal-close {
+      background: var(--bg);
+      border: none;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    /* ===== النماذج ===== */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: #fff;
+      color: var(--text);
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .time-inputs { display: flex; flex-direction: column; gap: 8px; }
+    .time-input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .time-input-row input[type="time"] {
+      flex: 1;
+      padding: 10px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+    .remove-time {
+      background: #fee2e2;
+      color: var(--danger);
+      border: none;
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .add-time-btn {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border: 2px dashed var(--primary);
+      border-radius: 10px;
+      padding: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .days-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .day-btn {
+      border: 2px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px 2px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .day-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+    }
+    .switch {
+      position: relative;
+      width: 50px; height: 28px;
+      background: #cbd5d5;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: none;
+    }
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px; right: 3px;
+      width: 22px; height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .switch.on { background: var(--primary); }
+    .switch.on::after { transform: translateX(-22px); }
+    /* ===== التقارير ===== */
+    .report-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .report-header h3 { font-size: 1rem; font-weight: 800; }
+    .progress-ring-wrap { text-align: center; }
+    .progress-bar {
+      height: 10px;
+      background: var(--bg);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+      border-radius: 10px;
+      transition: width 0.5s ease;
+    }
+    .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 12px; }
+    .week-day {
+      text-align: center;
+      font-size: 0.7rem;
+    }
+    .week-day .day-circle {
+      width: 34px; height: 34px;
+      margin: 4px auto;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      background: var(--bg);
+      color: var(--text-muted);
+    }
+    .week-day .day-circle.full { background: var(--success); color: #fff; }
+    .week-day .day-circle.partial { background: var(--accent); color: #fff; }
+    .week-day .day-circle.empty { background: #fee2e2; color: var(--danger); }
+    /* ===== العائلة ===== */
+    .family-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .family-info { flex: 1; }
+    .family-info .name { font-weight: 800; }
+    .family-info .details { font-size: 0.8rem; color: var(--text-muted); }
+    /* ===== التنبيهات ===== */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: var(--text);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      z-index: 300;
+      transition: transform 0.3s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    /* ===== إشعار الجرعة ===== */
+    .dose-alert {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border: 2px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    }
+    .dose-alert .alert-icon { font-size: 2rem; }
+    .dose-alert .alert-text { flex: 1; }
+    .dose-alert .alert-text strong { display: block; font-size: 1rem; }
+    .dose-alert .alert-text span { font-size: 0.85rem; color: #92400e; }
+    /* ===== إعدادات ===== */
+    .settings-group { margin-bottom: 20px; }
+    .settings-group h4 {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .hidden { display: none !important; }
+    @media (min-width: 640px) {
+      .modal { border-radius: 24px; margin-bottom: 20px; }
+      .modal-overlay { align-items: center; }
+    }
+
+    /* ============================================================
+       الإضافات الجديدة — الإصدار 2.0
+       ============================================================ */
+
+    /* ===== الوضع الليلي ===== */
+    body.dark {
+      --primary: #14b8a6;
+      --primary-dark: #0f766e;
+      --primary-light: #134e4a;
+      --accent: #fbbf24;
+      --danger: #f87171;
+      --success: #4ade80;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    body.dark header {
+      background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
+    }
+    body.dark .form-group input,
+    body.dark .form-group select,
+    body.dark .form-group textarea,
+    body.dark .time-input-row input[type="time"],
+    body.dark .day-btn {
+      background: #0f172a;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    body.dark .time-chip {
+      background: #0f172a;
+      border-color: var(--border);
+    }
+    body.dark .time-chip.taken { background: #14532d; border-color: #166534; color: #86efac; }
+    body.dark .time-chip.missed { background: #7f1d1d; border-color: #991b1b; color: #fecaca; }
+    body.dark .dose-alert {
+      background: linear-gradient(135deg, #78350f, #92400e);
+      border-color: var(--accent);
+    }
+    body.dark .dose-alert .alert-text span { color: #fde68a; }
+    body.dark .modal-close { background: #0f172a; color: var(--text); }
+    body.dark .remove-time { background: #7f1d1d; }
+    body.dark .icon-btn:hover { background: #0f172a; }
+    body.dark .icon-btn.delete:hover { background: #7f1d1d; }
+    body.dark .week-day .day-circle { background: #0f172a; }
+    body.dark .week-day .day-circle.empty { background: #7f1d1d; }
+    body.dark .empty-state { border-color: var(--border); }
+
+    /* ===== أزرار الهيدر (ليلي/لغة) ===== */
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .header-btn {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      width: 38px; height: 38px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .header-btn:hover { background: rgba(255,255,255,0.3); }
+    .header-btn.active { background: rgba(255,255,255,0.35); }
+
+    /* ===== حقل البحث ===== */
+    .search-box {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 13px 42px 13px 14px;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--card);
+      color: var(--text);
+    }
+    .search-box input:focus { outline: none; border-color: var(--primary); }
+    .search-icon {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1rem;
+      opacity: 0.6;
+    }
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      left: 0;
+      background: var(--card);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      margin-top: 4px;
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 300;
+      box-shadow: var(--shadow-lg);
+      display: none;
+    }
+    .autocomplete-dropdown.open { display: block; }
+    .autocomplete-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .autocomplete-item:hover { background: var(--primary-light); }
+    .autocomplete-item .sub { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ===== تنبيهات التفاعل الدوائي ===== */
+    .interaction-alert {
+      background: #fef2f2;
+      border: 2px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      animation: slideIn 0.3s ease;
+    }
+    body.dark .interaction-alert { background: #450a0a; }
+    .interaction-alert .ia-icon { font-size: 1.6rem; }
+    .interaction-alert .ia-text { flex: 1; font-size: 0.9rem; }
+    .interaction-alert .ia-text strong { display: block; margin-bottom: 2px; color: var(--danger); }
+    .interaction-alert .ia-text span { color: var(--text-muted); font-size: 0.8rem; }
+    .interaction-safe {
+      background: #f0fdf4;
+      border: 2px solid var(--success);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #166534;
+    }
+    body.dark .interaction-safe { background: #052e16; color: #86efac; }
+
+    /* ===== خريطة الالتزام ===== */
+    .hm-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .hm-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #fff;
+      min-height: 28px;
+    }
+    .hm-cell.full { background: #16a34a; }
+    .hm-cell.half { background: #f59e0b; }
+    .hm-cell.low { background: #ef4444; }
+    .hm-cell.empty { background: #e5e7eb; color: #9ca3af; }
+    body.dark .hm-cell.empty { background: #374151; color: #6b7280; }
+    .hm-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted); }
+    .hm-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .hm-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .hm-dot.full { background: #16a34a; }
+    .hm-dot.half { background: #f59e0b; }
+    .hm-dot.low { background: #ef4444; }
+    .hm-dot.empty { background: #e5e7eb; }
+    body.dark .hm-dot.empty { background: #374151; }
+
+    /* ===== صورة الوصفة ===== */
+    .med-photo-preview {
+      width: 100%;
+      max-height: 180px;
+      object-fit: contain;
+      border-radius: var(--radius);
+      border: 2px dashed var(--primary);
+      margin-top: 8px;
+    }
+
+    /* ===== فلترة وترتيب الأدوية ===== */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .filter-row input, .filter-row select { min-width: 0; }
+
+    /* ===== شريط تقدم الكورس ===== */
+    .course-progress {
+      background: var(--border);
+      border-radius: 20px;
+      height: 8px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .course-progress .bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 20px;
+      transition: width 0.4s ease;
+    }
+    .course-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ===== شارة التصنيف ===== */
+    .cat-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    body.dark .cat-badge { background: #134e4a; color: #99f6e4; }
+
+    /* ===== زر التراجع في التنبيه ===== */
+    .toast-actions { display: flex; gap: 8px; margin-top: 6px; }
+    .toast-actions button {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .toast-actions button:hover { background: rgba(255,255,255,0.3); }
+
+    /* ===== سجل التنبيهات ===== */
+    .alert-history-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      border-right: 4px solid var(--danger);
+    }
+    .alert-history-item .ah-date { color: var(--text-muted); font-size: 0.7rem; white-space: nowrap; }
+    body.dark .alert-history-item { background: #134e4a; }
+
+    /* ===== العلامات الحيوية ===== */
+    .vitals-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .vitals-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .vitals-header h4 { font-size: 0.95rem; font-weight: 800; }
+    .vitals-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .vitals-value .unit { font-size: 0.8rem; color: var(--text-muted); font-weight: 400; }
+    .vitals-value.abnormal { color: var(--danger); }
+    .vitals-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; margin-top: 10px; }
+    .vitals-bar {
+      flex: 1;
+      background: var(--primary-light);
+      border-radius: 4px 4px 0 0;
+      min-height: 4px;
+      transition: height 0.3s ease;
+      position: relative;
+    }
+    .vitals-bar.high { background: var(--danger); }
+    .vitals-bar.low { background: var(--accent); }
+    .vitals-bar .bar-label {
+      position: absolute;
+      bottom: -18px;
+      right: 0;
+      left: 0;
+      text-align: center;
+      font-size: 0.6rem;
+      color: var(--text-muted);
+    }
+    .vitals-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .vitals-actions .btn { flex: 1; padding: 8px; font-size: 0.8rem; }
+
+    /* ===== سجل الأعراض ===== */
+    .symptom-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .symptom-emoji { font-size: 1.6rem; }
+    .symptom-info { flex: 1; }
+    .symptom-info .name { font-weight: 800; font-size: 0.95rem; }
+    .symptom-info .time { font-size: 0.75rem; color: var(--text-muted); }
+    .symptom-severity {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+    .symptom-severity.light { background: #fef9c3; color: #854d0e; }
+    .symptom-severity.moderate { background: #fed7aa; color: #9a3412; }
+    .symptom-severity.severe { background: #fecaca; color: #991b1b; }
+    body.dark .symptom-severity.light { background: #713f12; color: #fef9c3; }
+    body.dark .symptom-severity.moderate { background: #7c2d12; color: #fed7aa; }
+    body.dark .symptom-severity.severe { background: #7f1d1d; color: #fecaca; }
+
+    /* ===== زر الصوت ===== */
+    .voice-btn {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border: 2px dashed var(--primary);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 6px;
+      width: 100%;
+      transition: all 0.2s;
+    }
+    .voice-btn.listening {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+      animation: pulse 1.5s infinite;
+    }
+
+    /* ===== التقرير الطبي (طباعة) ===== */
+    .print-report {
+      display: none;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      .print-report, .print-report * { visibility: visible; }
+      .print-report {
+        display: block;
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        padding: 20px;
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        color: #111;
+        background: #fff;
+      }
+      .print-report h1 { font-size: 1.4rem; color: #0d9488; margin-bottom: 4px; }
+      .print-report h2 { font-size: 1.1rem; margin: 16px 0 8px; color: #0f766e; border-bottom: 2px solid #0d9488; padding-bottom: 4px; }
+      .print-report table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+      .print-report th, .print-report td { border: 1px solid #ccc; padding: 6px 8px; font-size: 0.8rem; text-align: right; }
+      .print-report th { background: #f0fdfa; }
+      .print-report .meta { font-size: 0.8rem; color: #555; margin-bottom: 16px; }
+      .print-report .pct { font-weight: 800; }
+    }
+
+    /* ===== تحسينات كبار السن (خط أكبر) ===== */
+    body.large-text {
+      font-size: 1.15rem;
+    }
+    body.large-text .med-name { font-size: 1.25rem; }
+    body.large-text .time-chip { font-size: 1rem; padding: 10px 14px; }
+    body.large-text .btn { font-size: 1.1rem; padding: 14px 22px; }
+    body.large-text .nav-item { font-size: 0.85rem; }
+    body.large-text .fab { width: 66px; height: 66px; font-size: 2rem; }
+    body.large-text .summary-item .num { font-size: 1.9rem; }
+
+    /* ===== شارة التفاعل على بطاقة الدواء ===== */
+    .interaction-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fef2f2;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-top: 6px;
+    }
+    body.dark .interaction-badge { background: #450a0a; }
+
+    /* ===== شريط التقدم في التقارير ===== */
+    .report-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .report-actions .btn { flex: 1; padding: 10px; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <!-- الهيدر -->
+  <header>
+    <div class="header-top">
+      <div class="logo">
+        <div class="logo-icon">💊</div>
+        <span>تذكير الدواء</span>
+      </div>
+      <div class="date-display" id="dateDisplay"></div>
+      <div class="header-actions">
+        <button class="header-btn" id="langBtn" onclick="toggleLang()" title="English / العربية">🌐</button>
+        <button class="header-btn" id="largeTextBtn" onclick="toggleLargeText()" title="خط أكبر">🔠</button>
+        <button class="header-btn" id="darkBtn" onclick="toggleDarkMode()" title="الوضع الليلي">🌙</button>
+      </div>
+    </div>
+    <div class="greeting">
+      <h1 id="greetingText">مرحباً 👋</h1>
+      <p id="greetingSub">كيف حال التزامك اليوم؟</p>
+    </div>
+  </header>
+
+  <!-- بطاقة الملخص -->
+  <div class="summary-card">
+    <div class="summary-item">
+      <div class="num" id="totalToday">0</div>
+      <div class="label">جرعة اليوم</div>
+    </div>
+    <div class="summary-item done">
+      <div class="num" id="takenToday">0</div>
+      <div class="label">تم أخذها</div>
+    </div>
+    <div class="summary-item missed">
+      <div class="num" id="missedToday">0</div>
+      <div class="label">فائتة</div>
+    </div>
+  </div>
+
+  <main>
+    <!-- تنبيه الجرعة الحالية -->
+    <div id="doseAlert" class="dose-alert hidden">
+      <div class="alert-icon">⏰</div>
+      <div class="alert-text">
+        <strong id="alertMedName">حان موعد دوائك</strong>
+        <span id="alertMedDetail"></span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="takeNowFromAlert()" style="padding:8px 14px;font-size:0.85rem;">أخذت ✅</button>
+        <button class="btn btn-outline" onclick="snoozeDose()" style="padding:8px 14px;font-size:0.85rem;">⏰ بعد 10 دقائق</button>
+      </div>
+    </div>
+
+    <!-- تنبيهات التفاعل الدوائي -->
+    <div id="interactionAlerts"></div>
+
+    <!-- حقل البحث -->
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="ابحث عن دواء..." oninput="handleSearch(this.value)" onfocus="showAutocomplete(this.value)">
+      <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
+    </div>
+
+    <!-- تنبيهات السلامة (حساسية، موانع، طعام، انتهاء صلاحية) -->
+    <div id="safetyAlerts"></div>
+
+    <!-- زر قائمة المشتريات -->
+    <button class="btn btn-outline btn-block" onclick="showShoppingList()" style="margin:8px 0;" id="shoppingBtn">🛒 قائمة المشتريات</button>
+
+    <!-- أدوية اليوم -->
+    <section id="todaySection">
+      <div class="section-title">
+        <h2>📋 أدوية اليوم <span class="badge" id="todayCount">0</span></h2>
+      </div>
+      <div id="todayList"></div>
+      <button class="btn btn-outline btn-block" onclick="takeAllDueDoses()" style="margin-top:8px;" id="takeAllBtn">✅ أخذ كل الجرعات المستحقة</button>
+    </section>
+
+    <!-- جميع الأدوية -->
+    <section id="allSection">
+      <div class="section-title">
+        <h2>💊 جميع الأدوية <span class="badge" id="allCount">0</span></h2>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="medFilter" placeholder="🔍 ابحث في الأدوية..." oninput="renderAllMeds()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        <select id="medCategoryFilter" onchange="renderAllMeds()" style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          <option value="">كل التصنيفات</option>
+          <option value="heart">❤️ القلب</option>
+          <option value="diabetes">🩸 السكري</option>
+          <option value="pain">💊 مسكنات</option>
+          <option value="antibiotic">🦠 مضادات حيوية</option>
+          <option value="respiratory">🫁 تنفس</option>
+          <option value="gut">🫄 هضمي</option>
+          <option value="mental">🧠 نفسي</option>
+          <option value="bone">🦴 عظام</option>
+          <option value="thyroid">🦋 غدة درقية</option>
+          <option value="skin">🧴 جلدية</option>
+          <option value="eyes">👁️ عيون</option>
+          <option value="other">📦 أخرى</option>
+        </select>
+        <select id="medSort" onchange="renderAllMeds()" style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          <option value="name">الاسم</option>
+          <option value="nextDose">الجرعة القادمة</option>
+          <option value="quantity">الكمية</option>
+          <option value="category">التصنيف</option>
+        </select>
+      </div>
+      <div id="allList"></div>
+    </section>
+
+    <!-- العلامات الحيوية -->
+    <section id="vitalsSection" class="hidden">
+      <div class="section-title">
+        <h2>💓 العلامات الحيوية</h2>
+      </div>
+      <div class="report-actions">
+        <button class="btn btn-outline" onclick="exportVitalsCSV()">📤 تصدير Excel (CSV)</button>
+      </div>
+      <div id="vitalsChart"></div>
+      <div id="vitalsList"></div>
+    </section>
+
+    <!-- سجل الأعراض -->
+    <section id="symptomsSection" class="hidden">
+      <div class="section-title">
+        <h2>🩺 سجل الأعراض</h2>
+      </div>
+      <div class="report-actions">
+        <button class="btn btn-outline" onclick="exportSymptomsCSV()">📤 تصدير Excel (CSV)</button>
+      </div>
+      <div id="symptomsList"></div>
+    </section>
+
+    <!-- التقارير -->
+    <section id="reportSection" class="hidden">
+      <div class="section-title">
+        <h2>📊 تقرير الالتزام</h2>
+      </div>
+      <div class="report-actions">
+        <button class="btn btn-primary" onclick="generatePrintReport()">📄 تقرير طبي PDF</button>
+        <button class="btn btn-outline" onclick="exportData()">⬇️ نسخة احتياطية</button>
+        <button class="btn btn-outline" onclick="shareMedList()">📤 مشاركة قائمة الأدوية</button>
+      </div>
+      <div id="reportContent"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🗓️ خريطة الالتزام (آخر 4 أسابيع)</h3>
+      </div>
+      <div id="heatmap"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🩺 مواعيد الطبيب</h3>
+      </div>
+      <div id="appointmentsList"></div>
+      <button class="btn btn-outline btn-block" onclick="openAppointmentModal()" style="margin-top:8px;">+ إضافة موعد</button>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>📜 سجل تنبيهات السلامة</h3>
+      </div>
+      <div id="alertHistoryList"></div>
+    </section>
+
+    <!-- العائلة -->
+    <section id="familySection" class="hidden">
+      <div class="section-title">
+        <h2>👨‍👩‍👧‍👦 أفراد العائلة <span class="badge" id="familyCount">0</span></h2>
+      </div>
+      <div id="familyList"></div>
+      <button class="btn btn-outline btn-block" onclick="openFamilyModal()" style="margin-top:8px;">+ إضافة فرد</button>
+    </section>
+
+    <!-- دليل الأدوية -->
+    <section id="encyclopediaSection" class="hidden">
+      <div class="section-title">
+        <h2>📚 دليل الأدوية الشامل</h2>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="encySearch" placeholder="🔍 ابحث عن دواء (عربي أو إنجليزي)..." oninput="renderEncyclopedia()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        <select id="encyCategory" onchange="renderEncyclopedia()" style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          <option value="">كل التصنيفات</option>
+        </select>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:10px;" id="encyCount"></div>
+      <div id="encyList"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🌐 بحث عبر الإنترنت (OpenFDA)</h3>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="fdaSearch" placeholder="🔍 ابحث في قاعدة FDA الأمريكية (أكثر من 100,000 دواء)..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        <button class="btn btn-primary" onclick="searchFDA()">بحث</button>
+      </div>
+      <div id="fdaResults"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🔍 البحث بالعكس (عرض جانبي ← دواء)</h3>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="reverseInput" placeholder="اكتب عرضاً جانبياً أو استخداماً: نعاس، غثيان، صداع، حموضة..." style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        <button class="btn btn-primary" onclick="reverseSearch()">بحث</button>
+      </div>
+      <div id="reverseResults"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🤖 المساعد الذكي</h3>
+      </div>
+      <div class="filter-row">
+        <input type="text" id="assistantInput" placeholder="اسأل: ما هو دواء ميتفورمين؟ أو: وارفارين مع إيبوبروفين؟" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        <button class="btn btn-primary" onclick="askAssistant()">اسأل</button>
+      </div>
+      <div id="assistantResponse"></div>
+    </section>
+
+    <!-- التطعيمات -->
+    <section id="vaccinesSection" class="hidden">
+      <div class="section-title">
+        <h2>💉 جدول التطعيمات</h2>
+      </div>
+      <div class="report-card" style="margin-bottom:12px;">
+        <div style="font-size:0.85rem;color:var(--text-muted);" id="vaccineProgress"></div>
+        <p style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">اضغط على المفتاح لتسجيل أن التطعيم تم. الجدول حسب توصيات منظمة الصحة العالمية.</p>
+      </div>
+      <div id="vaccinesList"></div>
+    </section>
+
+    <!-- الإعدادات -->
+    <section id="settingsSection" class="hidden">
+      <div class="section-title">
+        <h2>⚙️ الإعدادات</h2>
+      </div>
+      <div class="report-card">
+        <div class="settings-group">
+          <h4>الإشعارات</h4>
+          <div class="switch-row">
+            <span>تفعيل الإشعارات</span>
+            <button class="switch" id="notifSwitch" onclick="toggleNotifications()"></button>
+          </div>
+          <div class="switch-row">
+            <span>🔊 نطق صوتي عند حان موعد الجرعة</span>
+            <button class="switch" id="ttsSwitch" onclick="toggleTTS()"></button>
+          </div>
+        </div>
+        <div class="settings-group">
+          <h4>🔒 قفل الخصوصية (PIN)</h4>
+          <div class="switch-row">
+            <span>تفعيل قفل التطبيق برمز سري</span>
+            <button class="switch" id="pinSwitch" onclick="togglePin()"></button>
+          </div>
+          <div id="pinSetup" class="hidden" style="margin-top:8px;">
+            <input type="password" id="pinInput" placeholder="أدخل رمزاً من 4 أرقام" inputmode="numeric" maxlength="4" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:1rem;text-align:center;letter-spacing:8px;">
+            <button class="btn btn-primary btn-block" onclick="savePin()" style="margin-top:8px;">💾 حفظ الرمز</button>
+          </div>
+        </div>
+        <div class="settings-group">
+          <h4>🆘 بطاقة الطوارئ</h4>
+          <button class="btn btn-danger btn-block" onclick="showEmergencyCard()">🚑 عرض بطاقة الطوارئ</button>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">تعرض فصيلة الدم والحساسيات والأمراض المزمنة — مفيدة للإسعاف</p>
+        </div>
+        <div class="settings-group">
+          <h4>👨‍⚕️ جهات الاتصال الطبية</h4>
+          <input type="text" id="contactDoctor" placeholder="📞 هاتف الطبيب" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+          <input type="text" id="contactPharmacy" placeholder="📞 هاتف الصيدلية" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+          <input type="text" id="contactEmergency" placeholder="📞 هاتف الطوارئ" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+          <button class="btn btn-primary btn-block" onclick="saveContacts()">💾 حفظ جهات الاتصال</button>
+        </div>
+        <div class="settings-group">
+          <h4>البيانات</h4>
+          <button class="btn btn-outline btn-block" onclick="exportData()" style="margin-bottom:8px;">📤 تصدير نسخة احتياطية</button>
+          <button class="btn btn-outline btn-block" onclick="importData()" style="margin-bottom:8px;">📥 استيراد نسخة</button>
+          <button class="btn btn-outline btn-block" onclick="generateBackupCode()" style="margin-bottom:8px;">🔑 إنشاء كود نسخ احتياطي</button>
+          <textarea id="backupCode" style="display:none;width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.75rem;direction:ltr;margin-bottom:8px;min-height:80px;" readonly></textarea>
+          <button class="btn btn-primary btn-block" onclick="copyBackupCode()" style="margin-bottom:8px;">📋 نسخ الكود</button>
+          <input type="text" id="restoreCode" placeholder="الصق كود الاسترداد هنا..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.75rem;direction:ltr;margin-bottom:8px;">
+          <button class="btn btn-outline btn-block" onclick="restoreFromBackupCode()" style="margin-bottom:8px;">♻️ استعادة من الكود</button>
+          <button class="btn btn-danger btn-block" onclick="clearAllData()">🗑️ حذف كل البيانات</button>
+        </div>
+        <div class="settings-group">
+          <h4>📲 المشاركة والتذكير</h4>
+          <button class="btn btn-outline btn-block" onclick="shareDailySummary()" style="margin-bottom:8px;">📋 مشاركة ملخص اليوم (واتساب)</button>
+          <button class="btn btn-outline btn-block" onclick="shareMedicationList()" style="margin-bottom:8px;">💊 مشاركة قائمة أدويتي (واتساب)</button>
+          <button class="btn btn-outline btn-block" onclick="openWhatsAppReminder()" style="margin-bottom:8px;">⏰ إرسال تذكير اليوم (واتساب)</button>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">يفتح واتساب/تيليجرام برسالة جاهزة — اضغط إرسال لتأكيد التذكير.</p>
+        </div>
+        <div class="settings-group">
+          <h4>حول التطبيق</h4>
+          <p style="font-size:0.85rem;color:var(--text-muted);">
+            تذكير الدواء — تطبيق عربي مجاني لإدارة الأدوية. بياناتك تبقى على جهازك فقط.
+            <br>الإصدار 1.6
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- زر الإضافة -->
+  <button class="fab" onclick="openMedModal()" title="إضافة دواء">+</button>
+
+  <!-- الشريط السفلي -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="home" onclick="switchTab('home')">
+      <span class="nav-icon">🏠</span> الرئيسية
+    </button>
+    <button class="nav-item" data-tab="vitals" onclick="switchTab('vitals')">
+      <span class="nav-icon">💓</span> الحيوية
+    </button>
+    <button class="nav-item" data-tab="symptoms" onclick="switchTab('symptoms')">
+      <span class="nav-icon">🩺</span> الأعراض
+    </button>
+    <button class="nav-item" data-tab="report" onclick="switchTab('report')">
+      <span class="nav-icon">📊</span> التقارير
+    </button>
+    <button class="nav-item" data-tab="family" onclick="switchTab('family')">
+      <span class="nav-icon">👨‍👩‍👧‍👦</span> العائلة
+    </button>
+    <button class="nav-item" data-tab="encyclopedia" onclick="switchTab('encyclopedia')">
+      <span class="nav-icon">📚</span> الدليل
+    </button>
+    <button class="nav-item" data-tab="vaccines" onclick="switchTab('vaccines')">
+      <span class="nav-icon">💉</span> التطعيمات
+    </button>
+    <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+      <span class="nav-icon">⚙️</span> الإعدادات
+    </button>
+  </nav>
+
+  <!-- نافذة إضافة/تعديل دواء -->
+  <div class="modal-overlay" id="medModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="medModalTitle">➕ إضافة دواء جديد</h3>
+        <button class="modal-close" onclick="closeModal('medModal')">✕</button>
+      </div>
+      <form id="medForm" onsubmit="saveMed(event)">
+        <input type="hidden" id="medId">
+        <div class="form-group">
+          <label>اسم الدواء *</label>
+          <input type="text" id="medName" placeholder="مثال: جلوكوفاج 500" required>
+          <div class="autocomplete-dropdown" id="medAutocomplete"></div>
+          <button type="button" class="voice-btn" id="barcodeBtn" onclick="scanBarcode()" style="margin-right:4px;">📷 باركود</button>
+          <button type="button" class="voice-btn" id="voiceBtn" onclick="startVoiceInput()">🎤 إدخال صوتي</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>الجرعة</label>
+            <input type="text" id="medDosage" placeholder="مثال: 500 ملغ">
+          </div>
+          <div class="form-group">
+            <label>شكل الدواء</label>
+            <select id="medForm2">
+              <option value="حبوب">💊 حبوب</option>
+              <option value="كبسولات">💊 كبسولات</option>
+              <option value="شراب">🧴 شراب</option>
+              <option value="حقن">💉 حقن</option>
+              <option value="قطرات">💧 قطرات</option>
+              <option value="بخاخ">🌬️ بخاخ</option>
+              <option value="كريم">🧴 كريم</option>
+              <option value="أخرى">📦 أخرى</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>مواعيد الجرعات *</label>
+          <div class="time-inputs" id="timeInputs">
+            <div class="time-input-row">
+              <input type="time" class="time-input" value="08:00">
+              <button type="button" class="remove-time" onclick="removeTimeRow(this)">🗑️</button>
+            </div>
+            <div class="time-input-row">
+              <input type="time" class="time-input" value="20:00">
+              <button type="button" class="remove-time" onclick="removeTimeRow(this)">🗑️</button>
+            </div>
+          </div>
+          <button type="button" class="add-time-btn" onclick="addTimeRow()" style="margin-top:8px;">+ إضافة موعد</button>
+        </div>
+        <div class="form-group">
+          <label>أيام الأسبوع</label>
+          <div class="days-grid" id="daysGrid"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>الكمية المتوفرة</label>
+            <input type="number" id="medQuantity" placeholder="مثال: 30" min="0">
+          </div>
+          <div class="form-group">
+            <label>تنبيه عند الكمية</label>
+            <input type="number" id="medRefill" placeholder="مثال: 5" min="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>الفرد (لمن هذا الدواء؟)</label>
+          <select id="medMember"></select>
+        </div>
+        <div class="form-group">
+          <label>ملاحظات</label>
+          <textarea id="medNotes" rows="2" placeholder="مثال: يؤخذ بعد الأكل"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>📅 تاريخ انتهاء الصلاحية</label>
+            <input type="date" id="medExpiry">
+          </div>
+          <div class="form-group">
+            <label>📖 إذا نسيت الجرعة</label>
+            <select id="medMissedInstr">
+              <option value="تناوله فوراً عند التذكر">تناوله فوراً عند التذكر</option>
+              <option value="تخطَّ الجرعة المنسية">تخطَّ الجرعة المنسية</option>
+              <option value="تناوله مع الجرعة التالية">تناوله مع الجرعة التالية</option>
+              <option value="راجع الطبيب أو الصيدلي">راجع الطبيب أو الصيدلي</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>📸 صورة الوصفة أو العلبة (اختياري)</label>
+          <input type="file" id="medPhoto" accept="image/*" onchange="previewMedPhoto(event)">
+          <img id="medPhotoPreview" class="hidden" style="max-width:120px;border-radius:8px;margin-top:6px;border:1px solid var(--border);">
+          <button type="button" class="btn btn-outline btn-block hidden" id="medPhotoRemove" onclick="removeMedPhoto()" style="margin-top:6px;">🗑️ إزالة الصورة</button>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>🏷️ تصنيف الدواء</label>
+            <select id="medCategory">
+              <option value="">بدون تصنيف</option>
+              <option value="heart">❤️ القلب والأوعية</option>
+              <option value="diabetes">🩸 السكري</option>
+              <option value="pain">💊 مسكنات</option>
+              <option value="antibiotic">🦠 مضادات حيوية</option>
+              <option value="respiratory">🫁 تنفس</option>
+              <option value="gut">🫄 الجهاز الهضمي</option>
+              <option value="mental">🧠 نفسي</option>
+              <option value="bone">🦴 العظام والمفاصل</option>
+              <option value="thyroid">🦋 الغدة الدرقية</option>
+              <option value="skin">🧴 الجلدية</option>
+              <option value="eyes">👁️ العيون</option>
+              <option value="other">📦 أخرى</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>📅 مدة الكورس (أيام)</label>
+            <input type="number" id="medCourseTotal" placeholder="مثال: 7 (للأدوية المؤقتة)" min="0">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">💾 حفظ الدواء</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة فرد عائلة -->
+  <div class="modal-overlay" id="familyModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>👤 إضافة فرد جديد</h3>
+        <button class="modal-close" onclick="closeModal('familyModal')">✕</button>
+      </div>
+      <form onsubmit="saveFamily(event)">
+        <div class="form-group">
+          <label>الاسم *</label>
+          <input type="text" id="familyName" placeholder="مثال: أمي" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>فصيلة الدم</label>
+            <select id="familyBlood">
+              <option value="">غير معروف</option>
+              <option>A+</option><option>A-</option>
+              <option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option>
+              <option>O+</option><option>O-</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>اللون</label>
+            <select id="familyColor">
+              <option value="#0d9488">أخضر</option>
+              <option value="#3b82f6">أزرق</option>
+              <option value="#f59e0b">برتقالي</option>
+              <option value="#ef4444">أحمر</option>
+              <option value="#8b5cf6">بنفسجي</option>
+              <option value="#ec4899">وردي</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>🎂 العمر (سنة)</label>
+            <input type="number" id="familyAge" placeholder="مثال: 35" min="0" max="150">
+          </div>
+          <div class="form-group">
+            <label>👫 الجنس</label>
+            <select id="familyGender">
+              <option value="">غير محدد</option>
+              <option value="male">ذكر</option>
+              <option value="female">أنثى</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>🤰 حالة الحمل</label>
+            <select id="familyPregnant">
+              <option value="no">لا</option>
+              <option value="yes">نعم</option>
+              <option value="maybe">ربما</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>🤱 الرضاعة الطبيعية</label>
+            <select id="familyBreastfeeding">
+              <option value="no">لا</option>
+              <option value="yes">نعم</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>الحساسية</label>
+          <input type="text" id="familyAllergies" placeholder="مثال: بنسلين، صويا">
+        </div>
+        <div class="form-group">
+          <label>الأمراض المزمنة</label>
+          <input type="text" id="familyChronic" placeholder="مثال: سكري، ضغط">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">💾 حفظ</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- نافذة تأكيد الحذف -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="text-align:center;">
+      <div style="font-size:3rem;margin-bottom:10px;">⚠️</div>
+      <h3 style="margin-bottom:8px;">تأكيد الحذف</h3>
+      <p style="color:var(--text-muted);margin-bottom:20px;" id="confirmText">هل أنت متأكد؟</p>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="closeModal('confirmModal')">إلغاء</button>
+        <button class="btn btn-danger" style="flex:1;" id="confirmBtn">حذف</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة علامة حيوية -->
+  <div class="modal-overlay" id="vitalsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>💓 إضافة قياس</h3>
+        <button class="modal-close" onclick="closeModal('vitalsModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>نوع القياس</label>
+        <select id="vitalsType">
+          <option value="bp">🩸 ضغط الدم</option>
+          <option value="sugar">🍬 السكر</option>
+          <option value="weight">⚖️ الوزن</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label id="vitalsValueLabel">الانقباضي (العلوي)</label>
+          <input type="number" id="vitalsValue1" placeholder="120" min="0">
+        </div>
+        <div class="form-group">
+          <label id="vitalsValue2Label">الانبساطي (السفلي)</label>
+          <input type="number" id="vitalsValue2" placeholder="80" min="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ملاحظة</label>
+        <input type="text" id="vitalsNote" placeholder="اختياري">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveVital()">💾 حفظ القياس</button>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة عرض -->
+  <div class="modal-overlay" id="symptomModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🩺 تسجيل عرض</h3>
+        <button class="modal-close" onclick="closeModal('symptomModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>العرض</label>
+        <select id="symptomType">
+          <option value="🤕 صداع">🤕 صداع</option>
+          <option value="🤢 غثيان">🤢 غثيان</option>
+          <option value="😵 دوخة">😵 دوخة</option>
+          <option value="🥵 حرارة">🥵 حرارة</option>
+          <option value="😴 تعب">😴 تعب</option>
+          <option value="💧 عرق">💧 عرق</option>
+          <option value="💓 خفقان">💓 خفقان</option>
+          <option value="🫁 ضيق تنفس">🫁 ضيق تنفس</option>
+          <option value="🍽️ فقدان شهية">🍽️ فقدان شهية</option>
+          <option value="😰 قلق">😰 قلق</option>
+          <option value="أخرى">📝 أخرى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>الشدة</label>
+        <select id="symptomSeverity">
+          <option value="light">🟡 خفيف</option>
+          <option value="moderate">🟠 متوسط</option>
+          <option value="severe">🔴 شديد</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ملاحظة</label>
+        <input type="text" id="symptomNote" placeholder="اختياري">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveSymptom()">💾 تسجيل</button>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة موعد طبيب -->
+  <div class="modal-overlay" id="appointmentModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🩺 إضافة موعد طبيب</h3>
+        <button class="modal-close" onclick="closeModal('appointmentModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>الموعد (ماذا؟)</label>
+        <input type="text" id="apptTitle" placeholder="مثال: مراجعة السكري، تحليل سكر تراكمي">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>التاريخ</label>
+          <input type="date" id="apptDate">
+        </div>
+        <div class="form-group">
+          <label>الوقت</label>
+          <input type="time" id="apptTime" value="10:00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ملاحظة</label>
+        <input type="text" id="apptNote" placeholder="اختياري">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveAppointment()">💾 حفظ الموعد</button>
+    </div>
+  </div>
+
+  <!-- نافذة بطاقة الطوارئ -->
+  <div class="modal-overlay" id="emergencyModal">
+    <div class="modal" style="text-align:center;">
+      <div class="modal-header">
+        <h3>🚑 بطاقة الطوارئ</h3>
+        <button class="modal-close" onclick="closeModal('emergencyModal')">✕</button>
+      </div>
+      <div id="emergencyContent"></div>
+    </div>
+  </div>
+
+  <!-- نافذة قائمة المشتريات -->
+  <div class="modal-overlay" id="shoppingModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🛒 قائمة المشتريات</h3>
+        <button class="modal-close" onclick="closeModal('shoppingModal')">✕</button>
+      </div>
+      <div id="shoppingContent"></div>
+    </div>
+  </div>
+
+  <!-- نافذة تفاصيل الدواء من الدليل -->
+  <div class="modal-overlay" id="drugDetailModal">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 id="drugDetailTitle">💊 تفاصيل الدواء</h3>
+        <button class="modal-close" onclick="closeModal('drugDetailModal')">✕</button>
+      </div>
+      <div id="drugDetailContent" style="font-size:0.9rem;line-height:1.8;"></div>
+    </div>
+  </div>
+
+  <!-- نافذة الترحيب (أول استخدام) -->
+  <div class="modal-overlay" id="onboardingModal">
+    <div class="modal" style="text-align:center;max-width:420px;">
+      <div style="font-size:3.5rem;margin-bottom:10px;">💊</div>
+      <h3 style="margin-bottom:8px;">أهلاً بك في تذكير الدواء!</h3>
+      <p style="color:var(--text-muted);margin-bottom:16px;font-size:0.9rem;">منظم أدويتك الذكي — يعمل بدون إنترنت وبياناتك تبقى على جهازك</p>
+      <div style="text-align:right;background:var(--bg);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;font-size:0.85rem;line-height:2;">
+        <div>1️⃣ <strong>أضف أدوية عائلتك</strong> — بالضغط على زر +</div>
+        <div>2️⃣ <strong>حدد المواعيد</strong> — سيذكرك التطبيق في وقت الجرعة</div>
+        <div>3️⃣ <strong>سجل الجرعات</strong> — بضغطة واحدة "تم الأخذ"</div>
+        <div>4️⃣ <strong>أضف أفراد العائلة</strong> — مع الحساسية والأمراض المزمنة</div>
+        <div>5️⃣ <strong>راجع التقارير</strong> — الالتزام والعلامات الحيوية</div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="closeOnboarding()">🚀 ابدأ الآن</button>
+    </div>
+  </div>
+
+  <!-- نافذة قفل PIN -->
+  <div class="modal-overlay" id="pinModal">
+    <div class="modal" style="text-align:center;">
+      <div style="font-size:3rem;margin-bottom:10px;">🔒</div>
+      <h3 style="margin-bottom:8px;">التطبيق مقفل</h3>
+      <p style="color:var(--text-muted);margin-bottom:20px;">أدخل الرمز السري لفتح التطبيق</p>
+      <input type="password" id="pinUnlock" placeholder="••••" inputmode="numeric" maxlength="4" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:1.4rem;text-align:center;letter-spacing:10px;">
+      <button class="btn btn-primary btn-block" onclick="unlockApp()" style="margin-top:12px;">🔓 فتح</button>
+    </div>
+  </div>
+
+  <!-- التقرير الطبي القابل للطباعة -->
+  <div class="print-report" id="printReport"></div>
+
+  <!-- إدخال استيراد -->
+  <input type="file" id="importFile" accept=".json" class="hidden" onchange="handleImport(event)">
+
+  <!-- التنبيه -->
+  <div class="toast" id="toast"></div>
+
+  <script src="drugdb.js"></script>
+  <script src="drug-interactions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

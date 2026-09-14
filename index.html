@@ -1326,6 +1326,17 @@
           <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">يفتح واتساب/تيليجرام برسالة جاهزة — اضغط إرسال لتأكيد التذكير.</p>
         </div>
         <div class="settings-group">
+          <h4>☁️ مزامنة سحابية (WebDAV)</h4>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;">يعمل مع Nextcloud و ownCloud. مثال الرابط: <span style="direction:ltr;display:inline-block;">https://your-cloud.com/remote.php/dav/files/USER/med-reminder.json</span></p>
+          <input type="text" id="webdavUrl" placeholder="رابط WebDAV الكامل..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;direction:ltr;margin-bottom:8px;" onblur="saveWebdavSettings()">
+          <input type="text" id="webdavUser" placeholder="اسم المستخدم" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;margin-bottom:8px;" onblur="saveWebdavSettings()">
+          <input type="password" id="webdavPass" placeholder="كلمة المرور / رمز التطبيق" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.8rem;margin-bottom:8px;" onblur="saveWebdavSettings()">
+          <button class="btn btn-primary btn-block" onclick="webdavSave()" style="margin-bottom:8px;">⬆️ رفع البيانات إلى السحابة</button>
+          <button class="btn btn-outline btn-block" onclick="webdavLoad()" style="margin-bottom:8px;">⬇️ تنزيل البيانات من السحابة</button>
+          <button class="btn btn-outline btn-block" onclick="webdavTest()" style="margin-bottom:8px;">🔌 اختبار الاتصال</button>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;" id="webdavStatus"></p>
+        </div>
+        <div class="settings-group">
           <h4>حول التطبيق</h4>
           <p style="font-size:0.85rem;color:var(--text-muted);">
             تذكير الدواء — تطبيق عربي مجاني لإدارة الأدوية. بياناتك تبقى على جهازك فقط.

@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateDateDisplay();
   requestNotificationPermission();
   registerSW();
+  loadWebdavSettings();
 });
 
 /* ---------- إدارة البيانات (localStorage) ---------- */
@@ -1627,12 +1628,92 @@ function startVoiceInput() {
 }
 
 /* ---------- التقرير الطبي القابل للطباعة ---------- */
+/* ---------- التقرير الطبي القابل للطباعة (مع رسوم بيانية) ---------- */
 function generatePrintReport() {
   const el = document.getElementById("printReport");
   const meds = appData.medications;
   const vitals = appData.vitals || [];
   const symptoms = appData.symptoms || [];
   const today = new Date().toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  /* رسم بياني للالتزام (آخر 7 أيام) */
+  let adherenceSvg = "";
+  try {
+    const wd = getWeekData();
+    const max = Math.max(1, ...wd.days.map(d => d.total));
+    const bars = wd.days.map((d, i) => {
+      const h = d.total > 0 ? Math.max(4, Math.round((d.taken / d.total) * 100)) : 0;
+      const color = d.total === 0 ? "#cbd5e1" : d.taken === d.total ? "#10b981" : d.taken > 0 ? "#f59e0b" : "#ef4444";
+      const x = 20 + i * 40;
+      return `<rect x="${x}" y="${100 - h}" width="26" height="${h}" rx="4" fill="${color}"/>
+        <text x="${x + 13}" y="116" font-size="9" text-anchor="middle" fill="#555">${DAY_SHORT[d.day]}</text>
+        <text x="${x + 13}" y="${100 - h - 4}" font-size="9" text-anchor="middle" fill="#333">${d.total === 0 ? "–" : d.taken + "/" + d.total}</text>`;
+    }).join("");
+    adherenceSvg = `<svg viewBox="0 0 300 130" style="width:100%;max-width:340px;display:block;margin:0 auto;">
+      <line x1="20" y1="100" x2="300" y2="100" stroke="#ddd" stroke-width="1"/>
+      ${bars}</svg>`;
+  } catch (e) { adherenceSvg = ""; }
+
+  /* رسم بياني للعلامات الحيوية (آخر قياس لكل نوع) */
+  let vitalsSvg = "";
+  try {
+    const types = {};
+    vitals.forEach(v => { if (!types[v.type]) types[v.type] = []; types[v.type].push(v); });
+    const typeKeys = Object.keys(types);
+    if (typeKeys.length > 0) {
+      const t = typeKeys[0];
+      const cfg = VITALS_TYPES[t] || { label: t, unit: "" };
+      const series = types[t].slice(-14);
+      const vals = series.map(v => Number(v.value1));
+      const min = Math.min(...vals), max = Math.max(...vals);
+      const range = (max - min) || 1;
+      const pts = series.map((v, i) => {
+        const x = 20 + (i * (260 / Math.max(1, series.length - 1)));
+        const y = 100 - ((Number(v.value1) - min) / range) * 80;
+        return `${x},${y}`;
+      }).join(" ");
+      const last = series[series.length - 1];
+      vitalsSvg = `<svg viewBox="0 0 300 130" style="width:100%;max-width:340px;display:block;margin:0 auto;">
+        <polyline points="${pts}" fill="none" stroke="#0d9488" stroke-width="2.5"/>
+        <text x="150" y="16" font-size="11" text-anchor="middle" fill="#333" font-weight="bold">${cfg.label} — آخر ${series.length} قياس</text>
+        <text x="20" y="124" font-size="9" fill="#555">${formatDateArabic(last.date)}</text>
+        <text x="280" y="124" font-size="9" text-anchor="end" fill="#555">${last.value1}${cfg.unit ? " " + cfg.unit : ""}</text>
+      </svg>`;
+    }
+  } catch (e) { vitalsSvg = ""; }
+
+  /* ملخص التفاعلات بين الأدوية الحالية */
+  let interSummary = "";
+  try {
+    const ints = (typeof DRUG_INTERACTIONS_DB !== "undefined" ? DRUG_INTERACTIONS_DB : []);
+    const builtIn = (typeof DRUG_INTERACTIONS !== "undefined" ? DRUG_INTERACTIONS : []);
+    const activeNames = meds.filter(m => m.active).map(m => m.name);
+    const found = [];
+    for (let i = 0; i < activeNames.length; i++) {
+      for (let j = i + 1; j < activeNames.length; j++) {
+        const a = activeNames[i], b = activeNames[j];
+        for (let k = 0; k < ints.length; k++) {
+          if ((ints[k].a.indexOf(a) !== -1 && ints[k].b.indexOf(b) !== -1) ||
+              (ints[k].b.indexOf(a) !== -1 && ints[k].a.indexOf(b) !== -1)) {
+            found.push({ a, b, severity: ints[k].severity, effect: ints[k].effect });
+          }
+        }
+        for (let k = 0; k < builtIn.length; k++) {
+          if ((builtIn[k][0].indexOf(a) !== -1 && builtIn[k][1].indexOf(b) !== -1) ||
+              (builtIn[k][1].indexOf(a) !== -1 && builtIn[k][0].indexOf(b) !== -1)) {
+            found.push({ a, b, severity: "high", effect: builtIn[k][2] });
+          }
+        }
+      }
+    }
+    if (found.length > 0) {
+      interSummary = `<h2>⚠️ تفاعلات محتملة بين الأدوية الحالية</h2>
+        <table><thead><tr><th>الدواءان</th><th>الخطورة</th><th>التأثير</th></tr></thead><tbody>
+        ${found.map(f => `<tr><td>${escapeHtml(f.a)} + ${escapeHtml(f.b)}</td><td>${f.severity === "high" ? "🔴 خطير" : "🟡 متوسط"}</td><td>${escapeHtml(f.effect)}</td></tr>`).join("")}
+        </tbody></table>`;
+    }
+  } catch (e) { interSummary = ""; }
+
   const medRows = meds.length === 0
     ? `<tr><td colspan="4" style="text-align:center;">لا توجد أدوية</td></tr>`
     : meds.map(m => {
@@ -1656,15 +1737,18 @@ function generatePrintReport() {
   el.innerHTML = `
     <h1>💊 التقرير الطبي — تذكير الدواء</h1>
     <div class="meta">تاريخ التقرير: ${today} · عدد الأدوية: ${meds.length}</div>
+    <h2>📊 الالتزام (آخر 7 أيام)</h2>
+    ${adherenceSvg || '<p style="font-size:0.8rem;color:#555;">لا توجد بيانات التزام بعد</p>'}
     <h2>الأدوية الحالية</h2>
     <table><thead><tr><th>الدواء</th><th>الجرعة</th><th>المواعيد</th><th>الفرد / الأيام</th></tr></thead><tbody>${medRows}</tbody></table>
-    <h2>العلامات الحيوية (آخر 20)</h2>
+    ${interSummary}
+    <h2>📈 العلامات الحيوية</h2>
+    ${vitalsSvg || ""}
     <table><thead><tr><th>النوع</th><th>القيمة</th><th>التاريخ</th></tr></thead><tbody>${vitalRows}</tbody></table>
     <h2>الأعراض المسجلة (آخر 20)</h2>
     <table><thead><tr><th>العرض</th><th>الشدة</th><th>التاريخ</th></tr></thead><tbody>${symptomRows}</tbody></table>`;
   window.print();
 }
-
 /* ---------- تنبيهات الجرعات الفائتة (قسم العائلة) ---------- */
 function renderFamilyAlerts() {
   const container = document.getElementById("familyAlerts");
@@ -2985,15 +3069,145 @@ function askAssistant() {
   var builtIn = (typeof DRUG_INTERACTIONS !== "undefined" ? DRUG_INTERACTIONS : []);
   var answer = "";
 
-  /* Detect interaction queries */
-  if (q.indexOf("+") !== -1 || q.indexOf("مع") !== -1 || q.indexOf("متعارض") !== -1) {
-    var parts = q.replace(/\+/g, " ").replace(/مع/, " ").split(/\s{2,}/);
+  function findDrug(name) {
+    for (var i = 0; i < ency.length; i++) {
+      if (ency[i].ar.indexOf(name) !== -1 || ency[i].en.toLowerCase().indexOf(name.toLowerCase()) !== -1) {
+        return ency[i];
+      }
+    }
+    return null;
+  }
+  function drugFullInfo(match) {
+    var a = '<div style="border-right:3px solid var(--primary);padding-right:10px;margin-bottom:8px;">' +
+      '<strong style="font-size:1.1rem;">' + escapeHtml(match.ar) + '</strong> (' + escapeHtml(match.en) + ')<br>' +
+      '<span class="cat-badge">' + escapeHtml(match.cat) + '</span></div>' +
+      '<strong>💊 الاستخدامات:</strong> ' + escapeHtml(match.uses) + '<br>' +
+      '<strong>💧 الجرعة:</strong> ' + escapeHtml(match.dosage) + '<br>' +
+      '<strong>⚠️ الأعراض الجانبية:</strong> ' + escapeHtml(match.side) + '<br>' +
+      '<strong>🚫 موانع الاستخدام:</strong> ' + escapeHtml(match.contra) + '<br>' +
+      '<strong>🤰 الحمل والرضاعة:</strong> ' + escapeHtml(match.pregnancy) + '<br>' +
+      '<strong>👶 الأطفال:</strong> ' + escapeHtml(match.children) + '<br>' +
+      '<strong>👴 كبار السن:</strong> ' + escapeHtml(match.elderly) + '<br>' +
+      '<strong>🔗 التفاعلات:</strong> ' + escapeHtml(match.interactions) + '<br>' +
+      '<strong>🍽️ الطعام:</strong> ' + escapeHtml(match.food);
+    if (match.brands && match.brands.length) {
+      a += '<br><strong>🏷️ أسماء تجارية:</strong> ' + match.brands.map(escapeHtml).join(", ");
+    }
+    return a;
+  }
+
+  /* 1) تحية / مساعدة */
+  if (q.indexOf("مرحبا") !== -1 || q.indexOf("السلام") !== -1 || q.indexOf("اهلا") !== -1 || q === "help" || q === "مساعدة") {
+    answer = "أهلاً بك! 👋 أنا مساعدك الذكي للأدوية. يمكنك أن تسألني:<br>" +
+      "• <strong>ما هو دواء X؟</strong> — معلومات كاملة عن أي دواء<br>" +
+      "• <strong>X مع Y؟</strong> — فحص التفاعلات بين دواءين<br>" +
+      "• <strong>هل X آمن للحامل؟</strong> — فحص الحمل والرضاعة<br>" +
+      "• <strong>ماذا آخذ لصداع؟</strong> — اقتراحات حسب العرض<br>" +
+      "• <strong>جرعة X؟</strong> — الجرعة الموصى بها<br>" +
+      "• <strong>بديل لـ X؟</strong> — أدوية بديلة من نفس التصنيف<br>" +
+      "• <strong>X للأطفال؟</strong> — مدى أمانه للأطفال أو كبار السن";
+  }
+  /* 2) فحص الحمل */
+  else if (q.indexOf("حامل") !== -1 || q.indexOf("حمل") !== -1 || q.indexOf("رضاع") !== -1) {
+    var pregQ = q.replace(/هل/, "").replace(/آمن/, "").replace(/في الحمل/, "").replace(/للحامل/, "").replace(/أثناء/, "").replace(/والرضاعة/, "").replace(/الرضاعة/, "").replace(/\?/g, "").trim();
+    var pm = findDrug(pregQ);
+    if (pm) {
+var code = (pm.pregnancy || "N").charAt(0);
+      var verdict = "";
+      if (code === "A" || code === "B") verdict = "🟢 آمن نسبياً في الحمل (تصنيف " + code + ") — لكن استشيري طبيبك دائماً.";
+      else if (code === "C") verdict = "🟡 يُستخدم بحذر في الحمل (تصنيف C) — فقط إذا كانت الفائدة أكبر من الخطر وبإشراف الطبيب.";
+      else if (code === "D") verdict = "🔴 دليل على خطر على الجنين (تصنيف D) — يُمنع إلا في حالات استثنائية بإشراف طبي صارم.";
+      else if (code === "X") verdict = "⛔ ممنوع تماماً في الحمل (تصنيف X) — خطر مؤكد على الجنين.";
+      else if (code === "N") verdict = "⚪ غير مصنف (N) — لا توجد دراسات كافية عن أمانه في الحمل، يُنصح بتجنبه أو استشارة الطبيب.";
+      else verdict = "⚠️ لا توجد بيانات كافية — استشيري طبيبك.";
+      answer = "<strong>" + escapeHtml(pm.ar) + " — الحمل والرضاعة:</strong><br>" + verdict + "<br><br>📋 التفاصيل: " + escapeHtml(pm.pregnancy);
+    } else {
+      answer = "لم أجد الدواء المطلوب. جرّب كتابة الاسم كاملاً بالعربية أو الإنجليزية.";
+    }
+  }
+  /* 3) بديل لدواء */
+  else if (q.indexOf("بديل") !== -1 || q.indexOf("بديلي") !== -1 || q.indexOf("مثيل") !== -1) {
+    var altQ = q.replace(/بديل لـ/, "").replace(/بديل/, "").replace(/مثيل/, "").replace(/\?/g, "").trim();
+    var am = findDrug(altQ);
+    if (am) {
+      var alts = ency.filter(function(d) { return d.cat === am.cat && d.ar !== am.ar; }).slice(0, 8);
+      if (alts.length > 0) {
+        answer = "<strong>💊 بدائل " + escapeHtml(am.ar) + " (تصنيف: " + escapeHtml(am.cat) + "):</strong><br>" +
+          alts.map(function(d) { return "• <strong>" + escapeHtml(d.ar) + "</strong> (" + escapeHtml(d.en) + ") — " + escapeHtml(d.uses).split(",")[0]; }).join("<br>") +
+          "<br><br>⚠️ لا تستبدل دواءً بنفسك — استشر طبيبك أو الصيدلاني أولاً.";
+      } else {
+        answer = "لا توجد بدائل مسجلة في قاعدة البيانات لـ " + escapeHtml(am.ar) + ".";
+      }
+    } else {
+      answer = "لم أجد الدواء المطلوب للبحث عن بديل.";
+    }
+  }
+  /* 4) جرعة دواء */
+  else if (q.indexOf("جرعة") !== -1 || q.indexOf("الجرعة") !== -1 || q.indexOf("كم آخذ") !== -1) {
+    var doseQ = q.replace(/ما هي جرعة/, "").replace(/جرعة/, "").replace(/الجرعة/, "").replace(/كم آخذ من/, "").replace(/\?/g, "").trim();
+    var dm = findDrug(doseQ);
+    if (dm) {
+      answer = "<strong>💧 جرعة " + escapeHtml(dm.ar) + ":</strong><br>" + escapeHtml(dm.dosage) +
+        "<br><br>⚠️ الجرعة قد تختلف حسب العمر والحالة — التزم بوصفة طبيبك.";
+    } else {
+      answer = "لم أجد الدواء المطلوب. جرّب كتابة الاسم كاملاً.";
+    }
+  }
+  /* 5) دواء مع الطعام */
+  else if (q.indexOf("طعام") !== -1 || q.indexOf("اكل") !== -1 || q.indexOf("أكل") !== -1 || q.indexOf("معدة") !== -1) {
+    var foodQ = q.replace(/مع الطعام/, "").replace(/على معدة/, "").replace(/الطعام/, "").replace(/\?/g, "").trim();
+    var fm = findDrug(foodQ);
+    if (fm) {
+      answer = "<strong>🍽️ " + escapeHtml(fm.ar) + " والطعام:</strong><br>" + escapeHtml(fm.food);
+    } else {
+      answer = "لم أجد الدواء المطلوب.";
+    }
+  }
+  /* 6) دواء للأطفال أو كبار السن */
+  else if (q.indexOf("طفل") !== -1 || q.indexOf("أطفال") !== -1 || q.indexOf("اطفال") !== -1 || q.indexOf("كبار") !== -1 || q.indexOf("مسن") !== -1) {
+    var ageQ = q.replace(/هل/, "").replace(/آمن/, "").replace(/للأطفال/, "").replace(/للاطفال/, "").replace(/للطفل/, "").replace(/لكبار السن/, "").replace(/لكبار/, "").replace(/\?/g, "").trim();
+    var agem = findDrug(ageQ);
+    if (agem) {
+      var isChild = q.indexOf("طفل") !== -1 || q.indexOf("أطفال") !== -1 || q.indexOf("اطفال") !== -1;
+      answer = "<strong>" + escapeHtml(agem.ar) + (isChild ? " — للأطفال:</strong><br>" : " — لكبار السن:</strong><br>") +
+        (isChild ? escapeHtml(agem.children) : escapeHtml(agem.elderly));
+    } else {
+      answer = "لم أجد الدواء المطلوب.";
+    }
+  }
+  /* 7) ماذا آخذ لـ (عرض) */
+  else if (q.indexOf("ماذا آخذ") !== -1 || q.indexOf("ماذا اخذ") !== -1 || q.indexOf("دواء لـ") !== -1 || q.indexOf("دواء ل") !== -1 || q.indexOf("علاج لـ") !== -1 || q.indexOf("علاج ل") !== -1 || q.indexOf("ما هو علاج") !== -1) {
+    var symQ = q.replace(/ماذا آخذ لـ/, "").replace(/ماذا اخذ لـ/, "").replace(/ماذا آخذ/, "").replace(/دواء لـ/, "").replace(/دواء ل/, "").replace(/علاج لـ/, "").replace(/علاج ل/, "").replace(/ما هو علاج/, "").replace(/\?/g, "").trim();
+    var symHits = ency.filter(function(d) {
+      return (d.uses && d.uses.indexOf(symQ) !== -1) || (d.cat && d.cat.indexOf(symQ) !== -1);
+    });
+    if (symHits.length > 0) {
+      answer = '<strong>🔎 أدوية مفيدة لـ "' + escapeHtml(symQ) + '" (' + symHits.length + ' نتيجة):</strong><br>' +
+        symHits.slice(0, 10).map(function(d) {
+          return '• <strong>' + escapeHtml(d.ar) + '</strong> — ' + escapeHtml(d.uses).split(",")[0];
+        }).join("<br>") +
+        "<br><br>⚠️ هذه معلومات عامة — التشخيص والعلاج من اختصاص الطبيب.";
+    } else {
+      answer = "لم أجد أدوية مرتبطة بـ \"" + escapeHtml(symQ) + "\" في قاعدة البيانات.";
+    }
+  }
+  /* 8) فحص التفاعلات */
+  else if (q.indexOf("+") !== -1 || q.indexOf("مع") !== -1 || q.indexOf("متعارض") !== -1 || q.indexOf("تفاعل") !== -1) {
+    var parts = q.replace(/\+/g, " ").replace(/هل يتعارض/, " ").replace(/هل يتفاعل/, " ").replace(/متعارض/, " ").replace(/تفاعل/, " ").replace(/مع/, " ").replace(/\?/g, "").split(/\s{2,}/);
     var drug1 = parts[0].trim(), drug2 = (parts[1] || "").trim();
     var found = [];
     for (var j = 0; j < ints.length; j++) {
       if ((ints[j].a.indexOf(drug1) !== -1 && ints[j].b.indexOf(drug2) !== -1) ||
           (ints[j].b.indexOf(drug1) !== -1 && ints[j].a.indexOf(drug2) !== -1)) {
         found.push(ints[j]);
+      }
+    }
+    if (found.length === 0 && builtIn.length) {
+      for (var b = 0; b < builtIn.length; b++) {
+        if ((builtIn[b][0].indexOf(drug1) !== -1 && builtIn[b][1].indexOf(drug2) !== -1) ||
+            (builtIn[b][1].indexOf(drug1) !== -1 && builtIn[b][0].indexOf(drug2) !== -1)) {
+          found.push({ a: builtIn[b][0], b: builtIn[b][1], severity: "high", effect: builtIn[b][2], advice: builtIn[b][3] });
+        }
       }
     }
     if (found.length > 0) {
@@ -3006,7 +3220,7 @@ function askAssistant() {
       answer = "لم يتم اكتشاف تفاعلات معروفة بين " + escapeHtml(drug1) + " و " + escapeHtml(drug2) + ". لكن يُنصح دائماً باستشارة الطبيب أو الصيدلاني.";
     }
   }
-  /* Search for a drug */
+  /* 9) بحث عن دواء */
   else {
     var match = null;
     for (var k = 0; k < ency.length; k++) {
@@ -3015,23 +3229,8 @@ function askAssistant() {
       }
     }
     if (match) {
-      answer = '<div style="border-right:3px solid var(--primary);padding-right:10px;margin-bottom:8px;">' +
-        '<strong style="font-size:1.1rem;">' + escapeHtml(match.ar) + '</strong> (' + escapeHtml(match.en) + ')<br>' +
-        '<span class="cat-badge">' + escapeHtml(match.cat) + '</span></div>' +
-        '<strong>💊 الاستخدامات:</strong> ' + escapeHtml(match.uses) + '<br>' +
-        '<strong>💧 الجرعة:</strong> ' + escapeHtml(match.dosage) + '<br>' +
-        '<strong>⚠️ الأعراض الجانبية:</strong> ' + escapeHtml(match.side) + '<br>' +
-        '<strong>🚫 موانع الاستخدام:</strong> ' + escapeHtml(match.contra) + '<br>' +
-        '<strong>🤰 الحمل والرضاعة:</strong> ' + escapeHtml(match.pregnancy) + '<br>' +
-        '<strong>👶 الأطفال:</strong> ' + escapeHtml(match.children) + '<br>' +
-        '<strong>👴 كبار السن:</strong> ' + escapeHtml(match.elderly) + '<br>' +
-        '<strong>🔗 التفاعلات:</strong> ' + escapeHtml(match.interactions) + '<br>' +
-        '<strong>🍽️ الطعام:</strong> ' + escapeHtml(match.food);
-      if (match.brands && match.brands.length) {
-        answer += '<br><strong>🏷️ أسماء تجارية:</strong> ' + match.brands.map(escapeHtml).join(", ");
-      }
+      answer = drugFullInfo(match);
     } else {
-      /* Broad search by side effect or use */
       var broad = ency.filter(function(d) {
         return (d.side && d.side.indexOf(q) !== -1) ||
                (d.uses && d.uses.indexOf(q) !== -1) ||
@@ -3051,7 +3250,6 @@ function askAssistant() {
     '<div class="ia-icon">🤖</div>' +
     '<div class="ia-text" style="white-space:normal;line-height:1.8;">' + answer + '</div></div>';
 }
-
 /* ---------- المشاركة عبر واتساب / تيليجرام ---------- */
 function shareToWhatsApp(text) {
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
@@ -3158,4 +3356,118 @@ function getVaccineStatus(name) {
     if (taken[i].name === name) return true;
   }
   return false;
+}
+
+/* ---------- مزامنة WebDAV السحابية ---------- */
+function webdavGetCredentials() {
+  var url = document.getElementById("webdavUrl").value.trim();
+  var user = document.getElementById("webdavUser").value.trim();
+  var pass = document.getElementById("webdavPass").value;
+  if (!url || !user || !pass) {
+    showToast("أكمل جميع حقول WebDAV (الرابط + المستخدم + كلمة المرور)", "error");
+    return null;
+  }
+  return { url: url, auth: "Basic " + btoa(user + ":" + pass) };
+}
+
+function webdavSave() {
+  var creds = webdavGetCredentials();
+  if (!creds) return;
+  var status = document.getElementById("webdavStatus");
+  if (status) status.textContent = "⏳ جاري الرفع...";
+  fetch(creds.url, {
+    method: "PUT",
+    headers: { "Authorization": creds.auth, "Content-Type": "application/json" },
+    body: JSON.stringify(appData)
+  }).then(function(r) {
+    if (r.ok || r.status === 201 || r.status === 204) {
+      if (status) status.textContent = "✅ تم الرفع بنجاح — " + new Date().toLocaleTimeString("ar-EG");
+      showToast("✓ تم رفع البيانات إلى السحابة", "success");
+    } else {
+      throw new Error("HTTP " + r.status);
+    }
+  }).catch(function(e) {
+    if (status) status.textContent = "❌ فشل الرفع: " + e.message;
+    showToast("فشل الرفع — تحقق من الرابط والبيانات", "error");
+  });
+}
+
+function webdavLoad() {
+  var creds = webdavGetCredentials();
+  if (!creds) return;
+  var status = document.getElementById("webdavStatus");
+  if (status) status.textContent = "⏳ جاري التنزيل...";
+  fetch(creds.url, {
+    method: "GET",
+    headers: { "Authorization": creds.auth }
+  }).then(function(r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then(function(data) {
+    if (!data || !data.medications) throw new Error("صيغة البيانات غير صحيحة");
+    appData = {
+      medications: data.medications || [],
+      family: data.family || [],
+      settings: data.settings || { notifications: false },
+      vitals: data.vitals || [],
+      symptoms: data.symptoms || [],
+      appointments: data.appointments || [],
+      contacts: data.contacts || { doctor: "", pharmacy: "", emergency: "" },
+      vaccinations: data.vaccinations || [],
+      pin: data.pin || "",
+      tts: data.tts || false,
+      alertHistory: data.alertHistory || []
+    };
+    saveData();
+    loadData();
+    populateFamilySelect();
+    renderAll();
+    if (status) status.textContent = "✅ تم التنزيل بنجاح — " + new Date().toLocaleTimeString("ar-EG");
+    showToast("✓ تم تنزيل البيانات من السحابة", "success");
+  }).catch(function(e) {
+    if (status) status.textContent = "❌ فشل التنزيل: " + e.message;
+    showToast("فشل التنزيل — تحقق من الرابط والبيانات", "error");
+  });
+}
+
+function webdavTest() {
+  var creds = webdavGetCredentials();
+  if (!creds) return;
+  var status = document.getElementById("webdavStatus");
+  if (status) status.textContent = "⏳ جاري اختبار الاتصال...";
+  fetch(creds.url, {
+    method: "HEAD",
+    headers: { "Authorization": creds.auth }
+  }).then(function(r) {
+    if (r.ok || r.status === 404) {
+      if (status) status.textContent = "✅ الاتصال ناجح — السحابة تعمل (status " + r.status + ")";
+      showToast("✓ الاتصال ناجح", "success");
+    } else {
+      throw new Error("HTTP " + r.status);
+    }
+  }).catch(function(e) {
+    if (status) status.textContent = "❌ فشل الاتصال: " + e.message;
+    showToast("فشل الاتصال — تحقق من الرابط والبيانات", "error");
+  });
+}
+
+/* ---------- حفظ/WebDAV في الإعدادات عند التحميل ---------- */
+function loadWebdavSettings() {
+  try {
+    var s = JSON.parse(localStorage.getItem(STORAGE_KEY + "_webdav") || "{}");
+    var u = document.getElementById("webdavUrl");
+    var user = document.getElementById("webdavUser");
+    var p = document.getElementById("webdavPass");
+    if (u) u.value = s.url || "";
+    if (user) user.value = s.user || "";
+    if (p) p.value = s.pass || "";
+  } catch (e) {}
+}
+function saveWebdavSettings() {
+  var s = {
+    url: (document.getElementById("webdavUrl") || {}).value || "",
+    user: (document.getElementById("webdavUser") || {}).value || "",
+    pass: (document.getElementById("webdavPass") || {}).value || ""
+  };
+  localStorage.setItem(STORAGE_KEY + "_webdav", JSON.stringify(s));
 }

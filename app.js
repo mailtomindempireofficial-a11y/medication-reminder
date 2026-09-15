@@ -1,6 +1,6 @@
 ﻿/* ============================================================
    تذكير الدواء — تطبيق إدارة الأدوية العربي
-   الإصدار 1.8 — يعمل بالكامل على جهاز المستخدم (Offline First)
+   الإصدار 1.9 — يعمل بالكامل على جهاز المستخدم (Offline First)
    ============================================================ */
 
 "use strict";
@@ -21,7 +21,10 @@ let appData = {
   vaccinations: [],
   pin: "",
   tts: false,
-  alertHistory: []
+  alertHistory: [],
+  emergency: { allergies: "", chronic: "", bloodType: "", emergencyContact: "", insurance: "", notes: "" },
+  bpReadings: [],
+  symptomMeds: []
 };
 
 let _medPhotoData = "";
@@ -61,7 +64,10 @@ appData = {
         vaccinations: parsed.vaccinations || [],
         pin: parsed.pin || "",
         tts: parsed.tts || false,
-        alertHistory: parsed.alertHistory || []
+        alertHistory: parsed.alertHistory || [],
+        emergency: parsed.emergency || { allergies: "", chronic: "", bloodType: "", emergencyContact: "", insurance: "", notes: "" },
+        bpReadings: parsed.bpReadings || [],
+        symptomMeds: parsed.symptomMeds || []
       };
     }
   } catch (e) {
@@ -764,16 +770,18 @@ function switchTab(tab) {
   document.getElementById("reportSection").classList.toggle("hidden", tab !== "report");
   document.getElementById("familySection").classList.toggle("hidden", tab !== "family");
   document.getElementById("encyclopediaSection").classList.toggle("hidden", tab !== "encyclopedia");
-  document.getElementById("settingsSection").classList.toggle("hidden", tab !== "settings");
+document.getElementById("settingsSection").classList.toggle("hidden", tab !== "settings");
   document.getElementById("vaccinesSection").classList.toggle("hidden", tab !== "vaccines");
+  document.getElementById("safetySection").classList.toggle("hidden", tab !== "safety");
 
   // تحديث بيانات الأقسام الجديدة عند فتحها
-  if (tab === "vitals") { renderVitals(); renderVitalsChart(); }
-  if (tab === "symptoms") renderSymptoms();
+  if (tab === "vitals") { renderVitals(); renderVitalsChart(); renderBpTracker(); }
+  if (tab === "symptoms") { renderSymptoms(); renderSymptomMedLink(); }
   if (tab === "report") { renderHeatmap(); renderAppointments(); renderAlertHistory(); }
-if (tab === "encyclopedia") { populateEncyCategories(); renderEncyclopedia(); renderHerbs(); }
+if (tab === "encyclopedia") { populateEncyCategories(); renderEncyclopedia(); renderHerbs(); renderFoodInteractions(); renderTreatmentPlans(); }
   if (tab === "vaccines") renderVaccines();
   if (tab === "report") { renderMonthlyAnalytics(); renderInteractionGraph(); }
+  if (tab === "safety") { renderEmergencyCard(); renderExpiryAlerts(); renderRefillAlerts(); }
   if (tab === "settings") loadSettingsUI();
 
   // إخفاء زر الإضافة في غير الرئيسية
@@ -917,11 +925,14 @@ function handleImport(e) {
       const data = JSON.parse(ev.target.result);
       if (!data.medications || !data.family) throw new Error("صيغة غير صحيحة");
 appData = {
-        medications: data.medications,
-        family: data.family,
-        settings: data.settings || { notifications: false },
-        vaccinations: data.vaccinations || []
-      };
+      medications: data.medications,
+      family: data.family,
+      settings: data.settings || { notifications: false },
+      vaccinations: data.vaccinations || [],
+      emergency: data.emergency || { allergies: "", chronic: "", bloodType: "", emergencyContact: "", insurance: "", notes: "" },
+      bpReadings: data.bpReadings || [],
+      symptomMeds: data.symptomMeds || []
+    };
       saveData();
       populateFamilySelect();
       renderAll();
@@ -937,7 +948,7 @@ appData = {
 function clearAllData() {
   document.getElementById("confirmText").textContent = "سيتم حذف جميع الأدوية والبيانات نهائياً. هل أنت متأكد؟";
   confirmAction = () => {
-    appData = { medications: [], family: [], settings: { notifications: false }, vitals: [], symptoms: [], appointments: [], contacts: { doctor: "", pharmacy: "", emergency: "" }, vaccinations: [], pin: "", tts: false, alertHistory: [] };
+    appData = { medications: [], family: [], settings: { notifications: false }, vitals: [], symptoms: [], appointments: [], contacts: { doctor: "", pharmacy: "", emergency: "" }, vaccinations: [], pin: "", tts: false, alertHistory: [], emergency: { allergies: "", chronic: "", bloodType: "", emergencyContact: "", insurance: "", notes: "" }, bpReadings: [], symptomMeds: [] };
     saveData();
     loadData();
     populateFamilySelect();
@@ -3322,12 +3333,15 @@ function restoreFromBackupCode() {
     var raw = decodeURIComponent(escape(atob(code)));
     var data = JSON.parse(raw);
     if (!data.medications) throw new Error("صيغة غير صحيحة");
-    appData = {
+appData = {
       medications: data.medications || [],
       family: data.family || [],
       settings: data.settings || { notifications: false },
       vaccinations: data.vaccinations || [],
-      contacts: data.contacts || {}
+      contacts: data.contacts || {},
+      emergency: data.emergency || { allergies: "", chronic: "", bloodType: "", emergencyContact: "", insurance: "", notes: "" },
+      bpReadings: data.bpReadings || [],
+      symptomMeds: data.symptomMeds || []
     };
     saveData();
     populateFamilySelect();
@@ -3608,13 +3622,15 @@ function webdavLoad() {
     .then(function(data) {
       var applyData = function(d) {
         if (!d || !d.medications) throw new Error("صيغة البيانات غير صحيحة");
-        appData = {
+appData = {
           medications: d.medications || [], family: d.family || [],
           settings: d.settings || { notifications: false }, vitals: d.vitals || [],
           symptoms: d.symptoms || [], appointments: d.appointments || [],
           contacts: d.contacts || { doctor: "", pharmacy: "", emergency: "" },
           vaccinations: d.vaccinations || [], pin: d.pin || "", tts: d.tts || false,
-          alertHistory: d.alertHistory || []
+          alertHistory: d.alertHistory || [],
+          emergency: d.emergency || { allergies: "", chronic: "", bloodType: "", emergencyContact: "", insurance: "", notes: "" },
+          bpReadings: d.bpReadings || [], symptomMeds: d.symptomMeds || []
         };
         saveData(); loadData(); populateFamilySelect(); renderAll();
         if (status) status.textContent = "✅ تم التنزيل — " + new Date().toLocaleTimeString("ar-EG");

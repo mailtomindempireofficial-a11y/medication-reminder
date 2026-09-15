@@ -350,6 +350,10 @@
     }
     .nav-item .nav-icon { font-size: 1.3rem; }
     .nav-item.active { color: var(--primary); font-weight: 800; }
+    @media (max-width: 380px) {
+      .nav-item { padding: 4px 6px; font-size: 0.62rem; }
+      .nav-item .nav-icon { font-size: 1.15rem; }
+    }
     /* ===== النوافذ المنبثقة ===== */
     .modal-overlay {
       position: fixed;
@@ -1047,6 +1051,97 @@
     /* ===== شريط التقدم في التقارير ===== */
     .report-actions { display: flex; gap: 8px; margin-top: 12px; }
     .report-actions .btn { flex: 1; padding: 10px; font-size: 0.85rem; }
+
+    /* ===== إطار الهاتف على الشاشات الكبيرة (v1.9) ===== */
+    @media (min-width: 641px) {
+
+      /* خلفية الصفحة — تدرج داكن يُبرز إطار الهاتف */
+      body {
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 50%, #164e63 100%);
+        background-attachment: fixed;
+      }
+      body.dark {
+        background: linear-gradient(160deg, #020617 0%, #0f172a 50%, #134e4a 100%);
+      }
+
+      /* نمط نقاطي خفيف على خلفية الشاشة الكبيرة */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+        background-size: 24px 24px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* الهيدر — 640px متمركز، زوايا علوية دائرية، ظل */
+      header {
+        max-width: 640px;
+        margin: 0 auto;
+        border-radius: 24px 24px 0 0;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        z-index: 10;
+      }
+
+      /* بطاقة الملخص — داخل إطار 640px */
+      .summary-card {
+        max-width: 640px;
+        margin: -45px auto 20px;
+        position: relative;
+        z-index: 11;
+      }
+
+      /* المحتوى الرئيسي — خلفية بطاقة متصلة كشاشة هاتف */
+      main {
+        background: var(--card);
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        z-index: 5;
+      }
+
+      /* الشريط السفلي — 640px متمركز، زوايا سفلية دائرية */
+      .bottom-nav {
+        width: 100%;
+        max-width: 640px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        border-radius: 0 0 24px 24px;
+        box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.12);
+        z-index: 50;
+      }
+      body.dark .bottom-nav {
+        box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.35);
+      }
+
+      /* زر الإضافة العائم — داخل إطار 640px */
+      .fab {
+        left: calc(50% - 320px + 20px);
+        z-index: 55;
+      }
+
+      /* النوافذ المنبثقة — بطاقة هاتف 640px مركزة بزوايا دائرية */
+      .modal-overlay {
+        align-items: center;
+      }
+      .modal {
+        max-width: 640px;
+        border-radius: 24px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        margin-bottom: 20px;
+      }
+      body.dark .modal {
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+
+      /* التنبيه العائم — محدود بالإطار */
+      .toast {
+        max-width: 600px;
+      }
+
+    }
   </style>
 </head>
 <body>
@@ -1170,6 +1265,10 @@
       </div>
       <div id="vitalsChart"></div>
       <div id="vitalsList"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🩺 تتبع ضغط الدم</h3>
+      </div>
+      <div id="bpTracker"></div>
     </section>
 
     <!-- سجل الأعراض -->
@@ -1181,6 +1280,10 @@
         <button class="btn btn-outline" onclick="exportSymptomsCSV()">📤 تصدير Excel (CSV)</button>
       </div>
       <div id="symptomsList"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🔗 ربط الأعراض بالأدوية</h3>
+      </div>
+      <div id="symptomMedLink"></div>
     </section>
 
     <!-- التقارير -->
@@ -1192,7 +1295,9 @@
         <button class="btn btn-primary" onclick="generatePrintReport()">📄 تقرير طبي PDF</button>
         <button class="btn btn-outline" onclick="exportData()">⬇️ نسخة احتياطية</button>
         <button class="btn btn-outline" onclick="shareMedList()">📤 مشاركة قائمة الأدوية</button>
+        <button class="btn btn-outline" onclick="generateDoctorReport()">🧑‍⚕️ تقرير الطبيب</button>
       </div>
+      <div id="doctorReport"></div>
       <div id="reportContent"></div>
       <div class="section-title" style="margin-top:16px;">
         <h3>📊 تحليلات آخر 30 يوم</h3>
@@ -1279,6 +1384,14 @@
         <input type="text" id="customDosage" placeholder="الجرعة" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
         <button class="btn btn-primary btn-block" onclick="addCustomDrug()">➕ إضافة الدواء</button>
       </div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🍽️ تفاعلات دواء-طعام</h3>
+      </div>
+      <div id="foodInteractions"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>📋 خطط علاجية جاهزة</h3>
+      </div>
+      <div id="treatmentPlans"></div>
     </section>
 
     <!-- التطعيمات -->
@@ -1394,12 +1507,53 @@
           <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;" id="webdavStatus"></p>
         </div>
         <div class="settings-group">
+          <h4>📱 مزامنة QR</h4>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;">انقل بياناتك بين الأجهزة عبر رمز QR — يعمل بدون إنترنت.</p>
+          <button class="btn btn-primary btn-block" onclick="qrExportData()" style="margin-bottom:8px;">📤 تصدير البيانات كـ QR</button>
+          <button class="btn btn-outline btn-block" onclick="document.getElementById('qrFileInput').click()" style="margin-bottom:8px;">📥 استيراد من صورة QR</button>
+          <input type="file" id="qrFileInput" accept="image/*" class="hidden" onchange="qrImportData()">
+          <div id="qrOutput" style="text-align:center;margin-top:8px;"></div>
+        </div>
+        <div class="settings-group">
           <h4>حول التطبيق</h4>
           <p style="font-size:0.85rem;color:var(--text-muted);">
             تذكير الدواء — تطبيق عربي مجاني لإدارة الأدوية. بياناتك تبقى على جهازك فقط.
-            <br>الإصدار 1.8
+            <br>الإصدار 1.9
           </p>
         </div>
+      </div>
+    </section>
+  <!-- السلامة الطبية -->
+    <section id="safetySection" class="hidden">
+      <div class="section-title">
+        <h2>🛡️ السلامة الطبية</h2>
+      </div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🆘 بطاقة الطوارئ الطبية</h3>
+      </div>
+      <div id="emergencyCard"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>⏰ تنبيهات انتهاء الصلاحية</h3>
+      </div>
+      <div id="expiryAlerts"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🔄 تنبيهات إعادة التعبئة</h3>
+      </div>
+      <div id="refillAlerts"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>👶 حاسبة جرعات الأطفال</h3>
+      </div>
+      <div class="report-card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <input type="number" id="childWeight" placeholder="وزن الطفل (كغ)" min="0" step="0.1" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          <input type="number" id="childDoseMgKg" placeholder="الجرعة (ملغ/كغ)" min="0" step="0.1" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <input type="number" id="childConcentration" placeholder="التركيز (ملغ/مل)" min="0" step="0.1" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          <input type="number" id="childTimes" placeholder="عدد الجرعات يومياً" min="1" step="1" value="1" style="flex:1;min-width:120px;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="calculateChildDose()">🧮 احسب الجرعة</button>
+        <div id="childDoseResult" style="margin-top:10px;"></div>
       </div>
     </section>
   </main>
@@ -1429,6 +1583,9 @@
     </button>
     <button class="nav-item" data-tab="vaccines" onclick="switchTab('vaccines')">
       <span class="nav-icon">💉</span> التطعيمات
+    </button>
+    <button class="nav-item" data-tab="safety" onclick="switchTab('safety')">
+      <span class="nav-icon">🛡️</span> السلامة
     </button>
     <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">
       <span class="nav-icon">⚙️</span> الإعدادات
@@ -1822,5 +1979,8 @@
   <script src="drugdb.js"></script>
   <script src="drug-interactions.js"></script>
   <script src="app.js"></script>
+  <script src="features-medical.js"></script>
+  <script src="features-health.js"></script>
+  <script src="features-sharing.js"></script>
 </body>
 </html>

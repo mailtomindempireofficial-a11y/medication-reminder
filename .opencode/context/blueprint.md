@@ -1,117 +1,63 @@
-# Blueprint: تذكير الدواء — الإصدار 2.1 (وضعيات المستخدم + الديسك توب)
+﻿# Blueprint — الويب v2.2: المساعد المربوط بكل شيء + شريط الأدوات المنظم + البحث المرتب + الأيقونة
 
-## الهدف
-1. تبسيط التطبيق لكل فئة مستخدم (كبار سن، أطفال، نساء، شباب) — 5 ميزات جديدة
-2. نسخة ديسك توب (Electron) بنفس الشكل الجميل تماماً
-3. تنسيق نسخة الهاتف لمطابقة الويب
+> اقرأه كاملاً قبل أي تعديل. **الألوان والقيم الأساسية في index.html (سطور 18-34) — لا تغيّرها أبداً.**
+> المشروع: C:\Users\الهندسية\Desktop\مستندات\تطبيق-تذكير-الدواء\
+> الملفات: index.html, app.js, styles.css, features-*.js, manifest.json, sw.js
 
-## التقنيات
-- Vanilla JS (ES5) — لا مكتبات خارجية
-- التخزين: localStorage عبر `saveData()` / `STORAGE_KEY`
-- RTL عربي بالكامل
-- الديسك توب: Electron يغلّف ملفات الويب نفسها (شكل مطابق 100%)
+## القيود الصارمة
+- **RTL عربي + أوفلاين + لا مكتبات خارجية جديدة** (تولّد PNG عبر canvas/منطق ذاتي).
+- **لا تكسر أي وظيفة قائمة**: `renderAll`, `switchTab`, `renderAllMeds`, `renderEncyclopedia`, `renderVitalsSection`, `renderSymptomsSection`, `renderFamilySection`, `renderVaccinesSection`, `renderSafetySection`, `renderReportSummary`, `personalAssistant`, `renderAssistantPanel`, `startQuickSetup`, `getFullEncyclopedia`, `renderToolsSection` (إن وُجدت).
+- **لا تلمس**: ملفات حفظ البيانات في localStorage، `initMap`/جوجل مابس، SW caching flow.
+- اكتب ملفاتك فقط: أنت تملك `features-*.js` + `index.html` + `manifest.json` + `styles.css` + `sw.js`.
 
-## بنية الملفات (المتفق عليها — لا تلمس app.js أو index.html)
-```
-تطبيق-تذكير-الدواء/
-├── features-simple.js      ← الوكيل 1 (وضع كبار السن + معالج الإعداد السريع)
-├── features-kids.js        ← الوكيل 2 (وضع الأطفال — نجوم + شخصية)
-├── features-women.js       ← الوكيل 3 (وضع المرأة — دورة + حبوب)
-├── features-voice.js       ← الوكيل 4 (تحسين التحكم الصوتي)
-├── features-assistant.js   ← موجود (لا تلمسه)
-├── features-tour.js        ← موجود (لا تلمسه)
-├── features-medical.js     ← موجود (لا تلمسه)
-├── features-health.js      ← موجود (لا تلمسه)
-├── features-sharing.js     ← موجود (لا تلمسه)
-├── app.js                  ← القائد يدمج لاحقاً (لا تلمسه)
-└── index.html              ← القائد يدمج لاحقاً (لا تلمسه)
-```
+## (1) شريط/لوحة الأدوات المنظمة 🧰 (الأهم)
+**المشكلة**: المستخدم يحتار من كثرة الصفحات السفلية.
+**الحل**: أضف **زر "الأدوات 🧰"** في الشريط السفلي (بجانب التبويبات — لا تحذف شيئاً، أضف فقط). الضغط يفتح **لوحة شبكة أدوات منظمة** (Bottom Sheet/Modal) مقسّمة إلى **4 فئات ببطاقات ملونة**:
+- 🩺 "القياسات والحيوية": القياسات، العلامات الحيوية، سكر/ضغط/وزن/أكسجين + الأعراض
+- 📊 "التقارير": التقارير، الالتزام، التحليلات، المواعيد، التاريخ
+- 🛡️ "السلامة": التفاعلات، انتهاء الصلاحية، الحساسية، إعادة التعبئة، التطعيمات
+- 👨👩👧 "العائلة": الأفراد، الوضعيات (كبار/أطفال/نساء)، الإعدادات
+كل بطاقة فيها أيقونة + عنوان + وصف قصير + onclick ينتقل للقسم المعني (`switchTab('x')`).
+شبكة بأعمدة متجاوبة (2-3). أزرار كبيرة مريحة لكبار السن.
 
-## نماذج البيانات (appData — موجودة في app.js)
-```js
-appData = {
-  medications: [{ id, name, dosage, form, times:[], days:[], quantity, refill, notes, expiry, missedInstr, photo, category, courseTotal, memberId, active, log:{} }],
-  family, settings, vitals, symptoms, appointments, contacts, vaccinations,
-  emergency, bpReadings, symptomMeds, alertHistory, pin, tts
-}
-```
+## (2) المساعد المربوط بكل شيء 🤖 (features-assistant.js)
+**الحل**: المساعد يجب أن يجيب عن كل بيانات المستخدم الفعلية المربوطة بقاعدة البيانات وليس نصاً ثابتاً. تأكد تغطية (وأضف ما ينقص):
+- "كم دواء عندي؟" → `appData.medications.length` (نشط)
+- "متى موعد دوائي القادم؟" → أقرب جرعة من `times` + الساعة الحالية VS
+- "كيف التزامي اليوم؟" → `appData.dosesLog` (جرعات مأخوذة/متبقية)
+- "هل أدويتي تتعارض؟" → `DRUG_INTERACTIONS_DB` + التفاعلات
+- "آخر قراءة ضغط/سكر/وزن/أكسجين؟" → `appData.vitals` (اقرأ vitals health من `features-vitals.js`)
+- "آخر أعراضي؟" → `appData.symptoms`
+- "أقرب موعد طبيب؟" → `appData.appointments`
+- "عائلتي/حساسياتهم؟" → `appData.family`
+- "تطعيماتي المتبقية؟" → `appData.vaccinations`
+- "أدوية تنتهي قريباً؟" → `getExpiringMeds()`
+- "أدوية تحتاج تعبئة؟" → `appData.medications` quantity vs refill
+- "معلومات عن دواء X" → `getFullEncyclopedia()` (اسم عربي/إنجليزي/علامات تجارية)
+- **الالتزام الشهري**: احسب من `dosesLog` نسبة الالتزام (نسبة مئوية بسيطة) + سلسلة الأيام.
+- أضف **أزرار أسئلة سريعة** (chips) من `_assistantTip` و`ASSISTANT_QUICK_QUESTIONS`.
+- النبرة: عربية ودية + نصائح. **الرد يعتمد على البيانات الحقيقية ولا شيء مختلق**.
 
-## دوال جاهزة للاستخدام (موجودة في app.js — استدعها فقط)
-- `escapeHtml(str)`, `uid()`, `todayStr()`, `nowTime()`, `formatDateArabic(date)`, `showToast(msg, type)`, `saveData()`, `renderAll()`
-- `getTodayDoses()`, `isDoseTaken(medId, time, dateStr)`, `markDose(medId, time, dateStr, taken)`, `getTakenCountToday()`, `getMissedCountToday()`
-- `switchTab(tab)`, `renderToday()`, `renderAllMeds()`, `updateSummary()`
-- `getFullEncyclopedia()`, `checkDrugInteractions(meds)`, `getExpiringMeds()`, `classifyBp(sys, dia)`, `symptomChecker(q)`
-- `startVoiceInput()` (موجود — يحسّنه الوكيل 4)
-- `STORAGE_KEY` (مفتاح التخزين الأساسي)
+## (3) البحث المرتب في دليل الأدوية 📚 (features-encyclopedia.js)
+**المشكلة**: قائمة طويلة جداً — المستخدم يريد أن يبحث فيجد مباشرة، لا تمرير في كل الأدوية.
+**الحل**: في `renderEncyclopedia`:
+- عند عدم وجود نص بحث: **لا تعرض قائمة كل الأدوية**. اعرض شاشة ترحيب: أيقونة بحث كبيرة + رسالة "اكتب اسم الدواء للبحث..." + **التصنيفات كأزرار** + **قسم "الأكثر شيوعاً"** (أول 4-6 أدوية شائعة) + **"الأكثر مشاهدة مؤخراً"** (تتبع clicks مؤخراً).
+- عند الكتابة (`encySearch oninput`): ابحث فورياً يطابق الاسم العربي/الإنجليزي/التصنيف/العلامات التجارية، واعرض **نتائج مرتبة فقط** (الاسم المطابق أولاً ثم البديل المتشابه مرتبة حسب الصلة) + قسم "تفاعلات مشهورة" لا يلزم.
+- عند النقر على نتيجة → `showDrugDetails(d.ar)` مفتوح (موجودة).
+- احتفظ بزر "التصنيف" `encyCategory` (موجود) يعمل كفلتر إضافي في نتائج البحث.
 
-## أنماط CSS الجاهزة
-`.report-card` `.vitals-card` `.btn` `.btn-primary` `.btn-outline` `.btn-block` `.section-title` `.badge` `.icon-btn` `.hidden` `.filter-row` `.fab` `.modal-overlay` `.modal` `.summary-card` `.dose-card`
+## (4) الأيقونة والمواضيع (manifest.json + index.html + تفويض عبر الشاشة)
+- **أيقونة تركوازية** مطابقة للألوان: خلفية متدرجة `#0d9488 → #0f766e` + رمز كبسولة/شعار أبيض. أنشئ PNGs (192/512/maskable/الأيقونة الظاهرة) — يمكنك توليدها برمجياً (canvas/dataURL أو SVG→PNG) دون مكتبة خارجية. حدّث `manifest.json` icons + مضمّن في index.html `<link rel="icon">` + `apple-touch-icon`.
+- حدّث `manifest.json` name/short_name/description/theme_color إن لزم للعربية.
 
-## قواعد صارمة لكل وكيل
-1. اكتب ملفك فقط (`features-*.js`) — **ممنوع تعديل app.js أو index.html**
-2. ES5 فقط (بدون let/const/arrow/async/template literals)
-3. لا مكتبات خارجية
-4. عرّف علم الجاهزية: `window.FEATURES_SIMPLE_READY = true;` / `FEATURES_KIDS_READY` / `FEATURES_WOMEN_READY` / `FEATURES_VOICE_READY`
-5. أي بيانات جديدة تُحفظ في localStorage بمفتاح خاص (STORAGE_KEY + "_اسم") — لا تعدّل appData إلا عبر saveData()
-6. كل دالة تبدأ بتحقق `if (!el) return;` + try/catch للمدخلات
-7. بعد الانتهاء: أضف تسليمك إلى `.opencode/context/progress.md`
+## آلية العمل
+- اقرأ أولاً: `features-assistant.js` (المساعد الحالي — انظر ما هو مغطى وما ينقص)، `features-vitals.js` + `features-encyclopedia.js` + `features-family.js` + `features-vaccines.js` (أسماء الوظائف الموجودة فعلاً) **قبل** كتابة أي كود، حتى لا تُحدث تكراراً أو تكسر شيئاً.
+- لا تعدّل `app.js` (القائد يملكه) إلا إذا كان التغيير لا بد منه للربط؛ وإن لزم، **نسّق مع القائد**.
 
-## عقود الواجهات
+## التحقق قبل التسليم
+1. `node --check` لكل ملفاتك المعنية (features-*.js) — 0 أخطاء صياغة.
+2. شغّل التطبيق في المتصفح وجرّب: اللوحة المنظمة تفتح وكل بطاقة تنتقل للقسم الصحيح، المساعد يجيب ببيانات حقيقية (جرّب: "كم دواء عندي؟" ثم "متى موعد دوائي القادم؟" ثم "آخر قراءة ضغطي؟" ثم "معلومات عن ..." لأي دواء من الدليل)، البحث يعمل بلا قائمة طويلة، الأيقونة تظهر.
+3. لا تكسر أي شيء.
 
-### الوحدة 1: features-simple.js (وضع كبار السن + معالج الإعداد السريع)
-| الدالة | السلوك |
-|---|---|
-| `isSimpleMode()` | ترجع true إذا وضع كبار السن مفعّل (localStorage STORAGE_KEY+"_simpleMode") |
-| `setSimpleMode(on)` | تفعيل/إيقاف + saveData + renderAll |
-| `toggleSimpleMode()` | تبديل |
-| `renderSimpleHome()` | شاشة مبسطة: بطاقة "الجرعة القادمة" ضخمة + زر عملاق "✅ أخذتها" + زر "⏰ تأجيل" + قراءة صوتية تلقائية + زر "🔊 أعد القراءة" |
-| `renderSimpleModeToggle()` | مفتاح في الإعدادات (يستدعيها القائد) |
-| `startQuickSetup()` | معالج 3 خطوات: (1) اسم الدواء (2) وقت الجرعة (3) عدد المرات — ينشئ الدواء تلقائياً |
-| `shouldShowQuickSetup()` | true إذا أول استخدام (لا أدوية و localStorage STORAGE_KEY+"_setupDone" غير موجود) |
-| `markSetupDone()` | يحفظ أن المعالج شوهد |
-| `renderQuickSetupModal()` | نافذة المعالج (overlay + 3 خطوات + أزرار) |
-
-**سلوك وضع كبار السن**: عند التفعيل → يخفي التبويبات (يضيف class للـ body) ويعرض شاشة واحدة فقط في #homeTab: الجرعة القادمة (أكبر وقت + اسم الدواء بخط ضخم) + زر "✅ أخذتها" (يستدعي markDose) + زر "⏰ تأجيل 10 دقائق" + زر "🔊". عند إيقافه → يعود الوضع الطبيعي.
-
-### الوحدة 2: features-kids.js (وضع الأطفال)
-| الدالة | السلوك |
-|---|---|
-| `isKidsMode()` | localStorage STORAGE_KEY+"_kidsMode" |
-| `toggleKidsMode()` | تبديل + renderAll |
-| `getStarsForToday()` | عدد الجرعات المأخوذة في وقتها اليوم (من log) |
-| `getStreak()` | عدد الأيام المتتالية التي أُخذت فيها كل الجرعات |
-| `renderKidsHome()` | شاشة ملونة: شخصية كرتونية (🐻/🐱/🦊/🐰 عشوائية) + "أحسنت! ⭐⭐⭐" + عداد نجوم + سلسلة أيام 🔥 + أزرار ضخمة ملونة |
-| `renderKidsModeToggle()` | مفتاح في الإعدادات |
-| `KIDS_MASCOTS` | مصفوفة شخصيات: ["🐻","🐱","🦊","🐰","🐼","🦁"] |
-
-**سلوك وضع الأطفال**: عند التفعيل → شاشة ملونة مبسطة في #homeTab: الشخصية + النجوم + السلسلة + قائمة أدوية اليوم بأزرار ضخمة ملونة (كل دواء زر "✅ أخذته"). رسائل تشجيع عشوائية: "أحسنت يا بطل! 🎉", "رائع! استمر! 💪", "ممتاز! أنت نجم! ⭐".
-
-### الوحدة 3: features-women.js (وضع المرأة)
-| الدالة | السلوك |
-|---|---|
-| `isWomenMode()` | localStorage STORAGE_KEY+"_womenMode" |
-| `toggleWomenMode()` | تبديل + renderAll |
-| `addPeriodEntry(date)` | تسجيل يوم دورة (appData.periods — تهيئة آمنة) |
-| `renderPeriodTracker()` | تقويم بسيط + توقع الدورة القادمة (متوسط آخر 3 دورات) |
-| `addPillReminder(time)` | تذكير حبوب منع الحمل اليومي (appData.pillReminder) |
-| `renderPillReminder()` | بطاقة: "حان وقت حبوبك 💊" + زر "أخذتها" + تنبيه فائت |
-| `renderWomenSection()` | قسم كامل (دورة + حبوب + نصائح) — يستدعيها القائد في تبويب الحيوية |
-| `renderWomenModeToggle()` | مفتاح في الإعدادات |
-
-**البيانات**: appData.periods = [{date, flow}], appData.pillReminder = {time, lastTaken, streak}
-
-### الوحدة 4: features-voice.js (تحسين التحكم الصوتي)
-| الدالة | السلوك |
-|---|---|
-| `startVoiceCommand()` | يبدأ الاستماع لأوامر (webkitSpeechRecognition — تحقق من وجوده) |
-| `processVoiceCommand(text)` | يحلل النص: "أضف دواء X" → يفتح نافذة الإضافة مع الاسم، "خذ دوائي" → يسجل الجرعة القادمة، "أين دوائي؟" → يعرض الجرعة القادمة، "أشعر بـ X" → symptomChecker |
-| `VOICE_COMMANDS` | مصفوفة الأوامر المدعومة مع أمثلة |
-| `renderVoiceHelp()` | بطاقة تعرض الأوامر الصوتية المتاحة |
-| `speakText(text)` | نطق نص عربي (SpeechSynthesis — تحقق من وجوده) |
-
-**ملاحظة**: لا تعدّل startVoiceInput الموجودة — أضف دوالاً جديدة فقط. القائد يضيف زر "🎤 أوامر صوتية" في الرئيسية.
-
-## التحقق لكل وكيل
-- `node --check features-*.js` ينجح
-- كل دالة معرفة في النطاق العام
-- علم الجاهزية true
+## التسليم
+قائمة الملفات المعدلة/المنشأة، نتائج node --check، قرارات التصميم، أي شيء لم يكتمل وسببه.

@@ -9,13 +9,17 @@
 /* ---------- الأسئلة السريعة الجاهزة ---------- */
 var ASSISTANT_QUICK_QUESTIONS = [
   "كم دواء عندي؟",
-  "متى موعد دوائي القادم؟",
+  "متى جرعتي القادمة؟",
   "كيف التزامي اليوم؟",
   "هل أدويتي تتعارض؟",
-  "ما آخر قراءة ضغط لي؟",
-  "ما أقرب موعد طبيب؟",
-  "هل هناك أدوية تنتهي قريباً؟",
-  "ما هي تطعيماتي؟"
+  "آخر قراءاتي؟",
+  "أعراضي؟",
+  "مواعيدي؟",
+  "عائلتي؟",
+  "تطعيماتي؟",
+  "أدوية تنتهي قريباً؟",
+  "أحتاج تعبئة؟",
+  "التزامي الشهري؟"
 ];
 
 /* ---------- نصائح ختامية ---------- */
@@ -316,31 +320,35 @@ function _assistantFamily(greeting) {
   return html;
 }
 
-/* 9) التطعيمات المتبقية والمنجزة */
+/* 9) التطعيمات المنجزة والمتبقية (من الجدول الفعلي VACCINE_SCHEDULE) */
 function _assistantVaccinations(greeting) {
-  var vacs = appData.vaccinations || [];
-  var remaining = [];
-  var done = 0;
-  for (var i = 0; i < vacs.length; i++) {
-    var v = vacs[i];
-    if (!v) continue;
-    if (v.done === true) done++;
-    else remaining.push(v);
+  var taken = appData.vaccinations || [];
+  var takenNames = [];
+  for (var i = 0; i < taken.length; i++) {
+    if (taken[i] && taken[i].name) takenNames.push(taken[i].name);
   }
-  if (!vacs.length) {
+  var schedule = (typeof VACCINE_SCHEDULE !== "undefined" && VACCINE_SCHEDULE) ? VACCINE_SCHEDULE : [];
+  var remaining = [];
+  for (var j = 0; j < schedule.length; j++) {
+    if (schedule[j] && takenNames.indexOf(schedule[j].name) === -1) remaining.push(schedule[j]);
+  }
+  if (!schedule.length && !takenNames.length) {
     return greeting + "<br>لا يوجد جدول تطعيمات مسجل. أضف تطعيماتك من تبويب 💉 التطعيمات.<br><br>" + _assistantTip();
   }
-  var html = greeting + "<br>التطعيمات: <strong>" + done + " منجز</strong> · <strong>" + remaining.length + " متبقٍ</strong>";
+  var html = greeting + "<br>التطعيمات: <strong>" + takenNames.length + " منجز</strong> · <strong>" + remaining.length + " متبقٍ</strong>";
   if (remaining.length) {
     html += "<ul>";
-    for (var j = 0; j < remaining.length; j++) {
-      html += "<li>" + _assistantEsc(remaining[j].name || "تطعيم");
-      if (remaining[j].date) html += " — " + _assistantEsc(String(remaining[j].date));
+    for (var k = 0; k < remaining.length; k++) {
+      html += "<li>" + _assistantEsc(remaining[k].name || "تطعيم");
+      if (remaining[k].when) html += " — 🕐 " + _assistantEsc(String(remaining[k].when));
       html += "</li>";
     }
     html += "</ul>";
   }
-  html += _assistantTip();
+  if (takenNames.length) {
+    html += "✅ المنجز: " + _assistantEsc(takenNames.join("، "));
+  }
+  html += "<br>راجع تبويب 💉 التطعيمات للتفاصيل.<br><br>" + _assistantTip();
   return html;
 }
 
@@ -388,25 +396,117 @@ function _assistantRefill(greeting) {
   return html;
 }
 
+/* 11b) آخر قراءات شاملة (ضغط + سكر + وزن) من appData.vitals */
+function _assistantAllVitals(greeting) {
+  var vitals = appData.vitals || [];
+  if (!vitals.length) {
+    return greeting + "<br>لا توجد قراءات مسجلة بعد. سجّل قياسك من تبويب 💓 الحيوية.<br><br>" + _assistantTip();
+  }
+  var lastByType = {};
+  for (var i = 0; i < vitals.length; i++) {
+    var v = vitals[i];
+    if (!v || !v.type) continue;
+    if (!lastByType[v.type]) lastByType[v.type] = v;
+  }
+  var html = greeting + "<br>آخر قراءاتك المسجلة:";
+  html += "<ul>";
+  for (var type in lastByType) {
+    var v = lastByType[type];
+    var cfg = (typeof VITALS_TYPES !== "undefined" && VITALS_TYPES[type]) ? VITALS_TYPES[type] : { label: type, unit: "", icon: "📊" };
+    var val = (type === "bp") ? (v.value1 + "/" + v.value2) : (v.value1 + (cfg.unit ? " " + cfg.unit : ""));
+    html += "<li>" + (cfg.icon || "📊") + " " + _assistantEsc(cfg.label || type) + ": <strong>" + _assistantEsc(String(val)) + "</strong>";
+    if (v.date) html += " <span style='color:var(--text-muted);font-size:.75rem'>(" + _assistantEsc(String(v.date)) + ")</span>";
+    html += "</li>";
+  }
+  html += "</ul>";
+  if (typeof classifyBp === "function" && lastByType.bp) {
+    var sys = parseInt(lastByType.bp.value1, 10);
+    var dia = parseInt(lastByType.bp.value2, 10);
+    if (!isNaN(sys) && !isNaN(dia)) {
+      var cls = classifyBp(sys, dia);
+      html += "تصنيف الضغط: <strong style='color:" + (cls.color || "#333") + "'>" + _assistantEsc(cls.label || "") + "</strong>";
+    }
+  }
+  html += "<br><br>" + _assistantTip();
+  return html;
+}
+
+/* 11c) الالتزام الشهري — نسبة من سجل الجرعات الفعلي + سلسلة الأيام */
+function _assistantMonthlyAdherence(greeting) {
+  var meds = _assistantActiveMeds();
+  if (!meds.length) {
+    return greeting + "<br>لا توجد أدوية نشطة لحساب الالتزام الشهري.<br><br>" + _assistantTip();
+  }
+  var days = {};
+  var now = new Date();
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(now);
+    d.setDate(now.getDate() - i);
+    var ds = d.toISOString().slice(0, 10);
+    days[ds] = { total: 0, taken: 0 };
+  }
+  for (var j = 0; j < meds.length; j++) {
+    var m = meds[j];
+    var times = m.times || [];
+    var log = m.log || {};
+    for (var ds in days) {
+      for (var k = 0; k < times.length; k++) {
+        days[ds].total++;
+        if (log[ds + "_" + times[k]]) days[ds].taken++;
+      }
+    }
+  }
+  var total = 0, taken = 0, fullDays = 0, partialDays = 0, emptyDays = 0;
+  for (var ds in days) {
+    total += days[ds].total;
+    taken += days[ds].taken;
+    if (days[ds].total === 0) continue;
+    if (days[ds].taken === days[ds].total) fullDays++;
+    else if (days[ds].taken > 0) partialDays++;
+    else emptyDays++;
+  }
+  var pct = total ? Math.round((taken / total) * 100) : 0;
+  var html = greeting + "<br>التزامك خلال آخر 30 يوماً: <strong>" + pct + "%</strong> (" + taken + " من " + total + " جرعة)";
+  html += "<ul>";
+  html += "<li>✅ أيام كاملة الالتزام: " + fullDays + "</li>";
+  html += "<li>🟡 أيام ناقصة: " + partialDays + "</li>";
+  html += "<li>🔴 أيام فائتة: " + emptyDays + "</li>";
+  html += "</ul>";
+  if (pct >= 90) html += "التزام ممتاز — حافظ عليه! 🏆";
+  else if (pct >= 70) html += "التزام جيد — يمكنك التحسن أكثر.";
+  else if (pct >= 50) html += "التزام متوسط — حاول تنظيم مواعيدك.";
+  else html += "التزام ضعيف — لا تتردد في طلب المساعدة لتنظيم أدويتك.";
+  html += "<br><br>" + _assistantTip();
+  return html;
+}
+
 /* 12) معلومات عن دواء من الموسوعة */
 function _assistantDrugInfo(greeting, raw, text) {
   var query = raw;
-  var idx = text.indexOf("معلومات عن");
-  if (idx !== -1) query = raw.substring(idx + "معلومات عن".length).trim();
+  var idx = text.indexOf("ابحث لي عن");
+  if (idx !== -1) query = raw.substring(idx + "ابحث لي عن".length).trim();
   else {
-    idx = text.indexOf("اخبرني عن");
-    if (idx !== -1) query = raw.substring(idx + "اخبرني عن".length).trim();
+    idx = text.indexOf("ابحث عن");
+    if (idx !== -1) query = raw.substring(idx + "ابحث عن".length).trim();
     else {
-      idx = text.indexOf("ما هو");
-      if (idx !== -1) query = raw.substring(idx + "ما هو".length).trim();
+      idx = text.indexOf("معلومات عن");
+      if (idx !== -1) query = raw.substring(idx + "معلومات عن".length).trim();
       else {
-        idx = text.indexOf("ما هي");
-        if (idx !== -1) query = raw.substring(idx + "ما هي".length).trim();
+        idx = text.indexOf("اخبرني عن");
+        if (idx !== -1) query = raw.substring(idx + "اخبرني عن".length).trim();
+        else {
+          idx = text.indexOf("ما هو");
+          if (idx !== -1) query = raw.substring(idx + "ما هو".length).trim();
+          else {
+            idx = text.indexOf("ما هي");
+            if (idx !== -1) query = raw.substring(idx + "ما هي".length).trim();
+          }
+        }
       }
     }
   }
   if (!query) {
-    return greeting + "<br>اكتب اسم الدواء بعد \"معلومات عن\" — مثال: معلومات عن باراسيتامول.<br><br>" + _assistantTip();
+    return greeting + "<br>اكتب اسم الدواء بعد \"معلومات عن\" أو \"ابحث عن\" — مثال: معلومات عن باراسيتامول.<br><br>" + _assistantTip();
   }
   var enc = (typeof getFullEncyclopedia === "function") ? getFullEncyclopedia() : [];
   var qn = _assistantNormalize(query);
@@ -465,8 +565,16 @@ function personalAssistant(q) {
     /* 2) أقرب جرعة قادمة */
     if (text.indexOf("الجرعه القادمه") !== -1 || text.indexOf("الجرعه التاليه") !== -1 ||
         text.indexOf("موعد دوائي القادم") !== -1 || text.indexOf("الدواء القادم") !== -1 ||
-        text.indexOf("اقرب جرعه") !== -1 || text.indexOf("متى موعد دوائي") !== -1) {
+        text.indexOf("اقرب جرعه") !== -1 || text.indexOf("متى موعد دوائي") !== -1 ||
+        text.indexOf("جرعتي القادمه") !== -1 || text.indexOf("جرعتي التاليه") !== -1 ||
+        text.indexOf("متى جرعتي") !== -1 || text.indexOf("جرعتي") !== -1) {
       return _assistantNextDose(greeting);
+    }
+
+    /* 3b) الالتزام الشهري (30 يوماً) — قبل الالتزام اليومي */
+    if (text.indexOf("الالتزام الشهري") !== -1 || text.indexOf("التزام الشهر") !== -1 ||
+        text.indexOf("التزام الشهور") !== -1 || text.indexOf("الشهر") !== -1) {
+      return _assistantMonthlyAdherence(greeting);
     }
 
     /* 3) الالتزام اليومي */
@@ -474,6 +582,15 @@ function personalAssistant(q) {
         text.indexOf("التزام") !== -1 || text.indexOf("اخذت اليوم") !== -1 ||
         text.indexOf("جرعاتي اليوم") !== -1) {
       return _assistantAdherence(greeting);
+    }
+
+    /* 5b) آخر قراءات شاملة (ضغط + سكر + وزن) — قبل نمط الضغط حتى لا يلتقطه */
+    if (text.indexOf("قراءاتي") !== -1 || text.indexOf("اخر قراءات") !== -1 ||
+        text.indexOf("قراءاتي الاخيره") !== -1 || text.indexOf("قياساتي") !== -1 ||
+        text.indexOf("اخر قياس") !== -1 || text.indexOf("سكري") !== -1 ||
+        text.indexOf("وزني") !== -1 || text.indexOf("السكر") !== -1 ||
+        text.indexOf("الوزن") !== -1) {
+      return _assistantAllVitals(greeting);
     }
 
     /* 5) ضغط الدم */
@@ -522,10 +639,11 @@ function personalAssistant(q) {
       return _assistantRefill(greeting);
     }
 
-    /* 12) معلومات عن دواء */
-    if (text.indexOf("معلومات عن") !== -1 || text.indexOf("ما هو") !== -1 ||
-        text.indexOf("ما هي") !== -1 || text.indexOf("اخبرني عن") !== -1 ||
-        text.indexOf("عرفني على") !== -1) {
+    /* 12) معلومات عن دواء أو بحث — "ابحث" قبل "معلومات" */
+    if (text.indexOf("ابحث لي عن") !== -1 || text.indexOf("ابحث عن") !== -1 ||
+        text.indexOf("ابحث") !== -1 || text.indexOf("معلومات عن") !== -1 ||
+        text.indexOf("ما هو") !== -1 || text.indexOf("ما هي") !== -1 ||
+        text.indexOf("اخبرني عن") !== -1 || text.indexOf("عرفني على") !== -1) {
       return _assistantDrugInfo(greeting, raw, text);
     }
 
@@ -635,11 +753,12 @@ function _assistantWelcome() {
     "أعرف كل بياناتك وأجيبك فوراً عن:<br>" +
     "• عدد أدويتك وجرعاتها<br>" +
     "• موعد جرعتك القادمة اليوم<br>" +
-    "• التزامك اليومي بالجرعات<br>" +
+    "• التزامك اليومي والشهري بالجرعات<br>" +
     "• تفاعلات أدويتك مع بعضها<br>" +
-    "• آخر قراءة لضغطك وتصنيفها<br>" +
-    "• آخر أعراضك ومواعيد طبيبك<br>" +
+    "• آخر قراءاتك (ضغط · سكر · وزن)<br>" +
+    "• أعراضك ومواعيد طبيبك وعائلتك<br>" +
     "• تطعيماتك وأدوية تنتهي قريباً<br>" +
+    "• معلومات عن أي دواء في الدليل<br>" +
     "جرّب الأسئلة السريعة بالأسفل 👇";
 }
 

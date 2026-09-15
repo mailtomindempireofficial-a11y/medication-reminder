@@ -353,3 +353,59 @@
 - [x] `window.FEATURES_WOMEN_READY === true`
 - [x] ES5 خالص (0 let/const / 0 arrow / 0 async / 0 template literals)
 - [x] اختبار وظيفي 39/39 في Node (vm): isWomenMode، toggleWomenMode، addPeriodEntry (3 إضافات)، منع التكرار، حفظ المفتاح الخاص، deletePeriodEntry، predictNextPeriod (3 تواريخ + date + null مع تاريخ واحد + آخر 3 فقط)، addPillReminder، markPillTaken (+ منع التكرار اليومي)، renderWomenSection (عنوان + نصائح)، renderPeriodTracker (زر + توقع + أيام متبقية)، renderPillReminder (سلسلة + تنبيه نسيان + زر إعداد)، renderWomenModeToggle (بطاقة + لا تكرار + تحديث حالة + بدون حاوية)
+
+---
+
+## تسليم: frontend-dev — التحسينات الكبرى الأربعة (لوحة الأدوات + المساعد + الدليل + الأيقونة)
+
+### الملفات المنشأة/المعدلة
+- `features-tools.js` (جديد): لوحة الأدوات المنظمة (Tools Hub) — 8 فئات ألوان + بحث + بطاقات مرتبة + CSS منزّل عبر JS + أزرار سريعة
+- `features-encyclopedia.js` (جديد): البحث المرتب في دليل الأدوية — شاشة ترحيب عند حقل فارغ (تصنيفات + الأكثر شيوعاً + الأكثر مشاهدة) + نتائج مرتبة بالصلة فور الكتابة + تتبع المشاهدات في localStorage
+- `features-assistant.js` (معدّل): ربط المساعد بالبيانات — إصلاح التطعيمات من VACCINE_SCHEDULE، آخر قراءات شاملة (ضغط/سكر/وزن)، الالتزام الشهري، أنماط بحث جديدة ("ابحث عن"، "جرعتي"، "قراءاتي"، "التزامي الشهري"، "أحتاج تعبئة")، توسيع الأسئلة السريعة إلى 12
+- `index.html` (معدّل): زر "🧰 الأدوات" في الشريط السفلي + `<script>` لـ features-tools.js و features-encyclopedia.js + CSS لزر الأدوات + رابط icon-512.png للفافيكون
+- `manifest.json` (معدّل): أيقونة maskable منفصلة `maskable-512.png` + فصل purpose إلى "any" و "maskable"
+- `icons/icon-192.png` (مُولّد): أيقونة تركوازية 192×192 بتصميم كبسولة بيضاء على خلفية متدرجة #0d9488→#0f766e
+- `icons/icon-512.png` (مُولّد): أيقونة تركوازية 512×512 بنفس التصميم
+- `icons/maskable-512.png` (مُولّد): نسخة maskable بكبسولة أصغر (36% من الحجم) لضمان المنطقة الآمنة 80%
+
+### الواجهات المتاحة للآخرين
+- `openToolsHub()`: تفتح لوحة الأدوات كنافذة overlay كاملة مع 8 فئات + بحث
+- `closeToolsHub()`: تُغلق اللوحة
+- `renderToolsHub()`: ترسم محتوى اللوحة (تصنيفات + بطاقات + أزرار سريعة)
+- `_toolsRunCard(action, target)`: تتعامل مع إجراءات البطاقات (فتح تبويب / مساعد / صوت)
+- `_encyTrackClick(arName)`: تسجل مشاهدة دواء في localStorage
+- `_encyOpenDetails(arName)`: تفتح تفاصيل دواء + تتبع المشاهدة
+- `window.FEATURES_TOOLS_READY = true`
+- `window.FEATURES_ENCYCLOPEDIA_READY = true`
+
+### التحديثات على features-assistant.js
+- إصلاح `_assistantVaccinations`: تقرأ VACCINE_SCHEDULE (الجدول الكامل) و appData.vaccinations (المسجلة) بدلاً من فحص v.done === true
+- إضافة `_assistantAllVitals`: آخر قراءة لكل نوع (bp/sugar/weight) من appData.vitals
+- إضافة `_assistantMonthlyAdherence`: نسبة الالتزام خلال 30 يوماً من med.log + سلسلة الأيام + أيام كاملة/ناقصة/فائتة
+- توسيع ASSISTANT_QUICK_QUESTIONS إلى 12 سؤالاً
+- نمط "ابحث عن/ابحث لي عن" → _assistantDrugInfo
+- نمط "جرعتي/الجرعة القادمة/الnext dose" → _assistantNextDose
+- نمط "قراءاتي/آخر قياسات" → _assistantAllVitals
+- نمط "التزامي الشهري" → _assistantMonthlyAdherence
+- تحسين _assistantWelcome لتعكس كل الإمكانيات الجديدة
+
+### القرارات المهمة
+- **8 فئات (لبطلب المستخدم)**: اعتمدنا 8 فئات (而非 blueprint's 4) لأن الطلب الأخير هو الأدق: 🩺 القياسات والأعراض / 📊 التقارير / 🛡️ السلامة والصلاحية / 💉 التطعيمات / 👨👩👧 العائلة / 📚 الدليل والبحث / 🤖 المساعد الذكي / ⚙️ الإعدادات
+- **عدم تعديل app.js**: استخدمنا نمط "إعادة التعريف اللاحق" — features-encyclopedia.js تُحمَّل بعد app.js في redefine renderEncyclopedia
+- **توليد PNG برمجياً**: Node script يستخدم zlib فقط (built-in) — لا مكتبات خارجية — encoder PNG بدائي: signature + IHDR + deflate scanlines + IEND مع CRC32
+- **أيقونة maskable منفصلة**: manifest.json يolo "any" و "maskable" منفصلين لضمان عرض صحيح على جميع المنصات
+- **تتبع المشاهدات**: localStorage key `medReminder_v1_encyRecent` — مصفوفة أسماء عربية (حد أقصى 8) تُحدَّث عند كل نقر
+- **ترتيب البحث حسب الصلة**: 6 مستويات (اسم عربي يبدأ → اسم إنجليزي يبدأ → اسم عربي يحتوي → اسم إنجليزي يحتوي → علامة تجارية → تصنيف)
+
+### التحقق
+- [x] `node --check` لـ features-tools.js و features-encyclopedia.js و features-assistant.js و app.js و drugdb.js و drug-interactions.js — كلها نجحت (ALL_SYNTAX_OK)
+- [x] أيقونة 192×192: التوقيع صحيح، الزاوية #0d9488، المركز #ccfbf1 (خط الكبسولة) — dimensions=192x192, bytes=15548
+- [x] أيقونة 512×512: التوقيع صحيح، نفس الألوان — dimensions=512x512, bytes=36142
+- [x] أيقونة maskable-512: مُولّدة بنجاح (bytes=36253) — كبسولة 36% من الحجم ضمن المنطقة الآمنة
+- [x] index.html: زر الأدوات موجود (line 1620)، سكربتات موجودة (lines 2021-2022)، favicon محدّث (line 15)
+- [x] manifest.json: 3 أيقونات (any 192, any 512, maskable 512)
+
+### ما لم يُنجز (إن وجد)
+- [x] لا شيء — كل المهام مكتملة
+
+---

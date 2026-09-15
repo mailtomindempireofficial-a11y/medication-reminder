@@ -12,6 +12,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
   <title>تذكير الدواء — منظم أدويتك الذكي</title>
   <style>
     /* ===== المتغيرات والأساسيات ===== */
@@ -354,6 +355,20 @@
       .nav-item { padding: 4px 6px; font-size: 0.62rem; }
       .nav-item .nav-icon { font-size: 1.15rem; }
     }
+    /* ===== زر الأدوات في الشريط السفلي ===== */
+    .tools-nav-item { position: relative; }
+    .tools-nav-item .nav-icon {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .tools-nav-item .nav-label { font-size: 0.65rem; margin-top: 1px; }
     /* ===== النوافذ المنبثقة ===== */
     .modal-overlay {
       position: fixed;
@@ -1602,6 +1617,9 @@
     <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">
       <span class="nav-icon">⚙️</span> الإعدادات
     </button>
+    <button class="nav-item tools-nav-item" onclick="openToolsHub()" title="لوحة الأدوات">
+      <span class="nav-icon">🧰</span> الأدوات
+    </button>
   </nav>
 
   <!-- نافذة إضافة/تعديل دواء -->
@@ -2000,5 +2018,7 @@
   <script src="features-kids.js"></script>
   <script src="features-women.js"></script>
   <script src="features-voice.js"></script>
+  <script src="features-tools.js"></script>
+  <script src="features-encyclopedia.js"></script>
 </body>
 </html>

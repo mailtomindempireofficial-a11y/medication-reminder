@@ -70,6 +70,7 @@ var TOOLS_HUB_CATEGORIES = [
     title: "⚙️ الإعدادات",
     cards: [
       { icon: "⚙️", title: "الإعدادات", desc: "الإشعارات والخصوصية والبيانات", tab: "settings" },
+      { icon: "🔍", title: "وضع القراءة الكبير", desc: "خط أكبر وتباين أعلى لضعف البصر", action: "reading" },
       { icon: "🧓", title: "وضع كبار السن", desc: "واجهة مبسطة بأزرار كبيرة", tab: "settings" },
       { icon: "🎮", title: "وضع الأطفال", desc: "واجهة ممتعة بالنجوم", tab: "settings" },
       { icon: "📲", title: "المشاركة والمزامنة", desc: "QR · WebDAV · واتساب", tab: "settings" }
@@ -121,7 +122,22 @@ function _toolsInjectStyles() {
     ".tools-card .tc-desc{font-size:.72rem;color:var(--text-muted,#5b7d7a);line-height:1.5;}" +
     "body.dark .tools-card{background:#0f172a;border-color:var(--border,#334155);}" +
     "body.dark .tools-card .tc-title{color:#e2e8f0;}" +
-    "body.dark .tools-close{background:#0f172a;color:#e2e8f0;}";
+    "body.dark .tools-close{background:#0f172a;color:#e2e8f0;}" +
+    /* كروت الأسئلة السريعة للمساعد (كبيرة لكبار السن) */
+    ".tools-assistant{background:linear-gradient(135deg,var(--primary-light,#ccfbf1),#e6fffa);" +
+    "border:1px solid var(--primary,#0d9488);border-radius:16px;padding:12px;margin-bottom:16px;}" +
+    ".tools-assistant-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}" +
+    "@media(min-width:480px){.tools-assistant-grid{grid-template-columns:repeat(4,1fr);}}" +
+    ".tools-ask-card{background:var(--card,#fff);border:2px solid var(--primary,#0d9488);" +
+    "border-radius:14px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;" +
+    "align-items:center;gap:4px;font-family:inherit;text-align:center;transition:all .15s;}" +
+    ".tools-ask-card:active{transform:scale(.95);}" +
+    ".tools-ask-card .tac-icon{font-size:1.5rem;line-height:1;}" +
+    ".tools-ask-card .tac-title{font-size:.85rem;font-weight:800;color:var(--primary-dark,#0f766e);}" +
+    ".tools-ask-card .tac-desc{font-size:.68rem;color:var(--text-muted,#5b7d7a);line-height:1.4;}" +
+    "body.dark .tools-assistant{background:#134e4a;border-color:#0f766e;}" +
+    "body.dark .tools-ask-card{background:#0f172a;border-color:#14b8a6;}" +
+    "body.dark .tools-ask-card .tac-title{color:#99f6e4;}";
   document.head.appendChild(style);
 }
 
@@ -155,6 +171,10 @@ function _toolsRunCard(card) {
     else if (typeof switchTab === "function") switchTab("settings");
     return;
   }
+  if (card.action === "reading") {
+    toggleReadingMode();
+    return;
+  }
   if (card.tab && typeof switchTab === "function") {
     switchTab(card.tab);
   }
@@ -174,10 +194,32 @@ function renderToolsHub() {
     html += '</div>';
     html += '<div class="tools-sub">كل أدوات التطبيق في مكان واحد — اختر ما تحتاجه</div>';
 
+    /* أسئلة سريعة للمساعد — كروت كبيرة بلا كتابة (لكبار السن) */
+    html += '<div class="tools-assistant">';
+    html += '<div class="tools-cat-title">⚡ أسئلة سريعة للمساعد — اضغط واسمع الإجابة</div>';
+    html += '<div class="tools-assistant-grid">';
+    html += '<button class="tools-ask-card" onclick="closeToolsHub();askAssistantQuickOpen(\'جرعتي القادمة؟\')">' +
+      '<span class="tac-icon">💊</span><span class="tac-title">جرعتي القادمة؟</span>' +
+      '<span class="tac-desc">متى موعد دوائي اليوم</span></button>';
+    html += '<button class="tools-ask-card" onclick="closeToolsHub();askAssistantQuickOpen(\'كم دواءً عندي؟\')">' +
+      '<span class="tac-icon">📋</span><span class="tac-title">كم دواءً عندي؟</span>' +
+      '<span class="tac-desc">عدد أدويتي النشطة</span></button>';
+    html += '<button class="tools-ask-card" onclick="closeToolsHub();askAssistantQuickOpen(\'التزامي الشهري؟\')">' +
+      '<span class="tac-icon">📅</span><span class="tac-title">كم التزامي هذا الشهر؟</span>' +
+      '<span class="tac-desc">نسبة التزامي بآخر 30 يوم</span></button>';
+    html += '<button class="tools-ask-card" onclick="closeToolsHub();askAssistantQuickOpen(\'تقريري اليومي؟\')">' +
+      '<span class="tac-icon">📈</span><span class="tac-title">تقريري اليومي</span>' +
+      '<span class="tac-desc">جرعاتي المأخوذة والمتبقية</span></button>';
+    html += '</div></div>';
+
     /* أزرار سريعة */
     html += '<div class="tools-quick">';
     html += '<button class="tools-quick-btn" onclick="closeToolsHub();openMedModal()">➕ إضافة دواء</button>';
     html += '<button class="tools-quick-btn alt" onclick="closeToolsHub();openAssistantChat()">🤖 اسأل المساعد</button>';
+    var readingOn = isReadingMode();
+    html += '<button class="tools-quick-btn' + (readingOn ? "" : " alt") + '" ' +
+      'onclick="closeToolsHub();toggleReadingMode()">' +
+      (readingOn ? "✅" : "🔍") + ' وضع القراءة الكبير</button>';
     html += '</div>';
 
     /* الفئات والبطاقات */

@@ -335,7 +335,8 @@ function renderToday() {
             </div>
             <div class="med-dosage">${escapeHtml(med.dosage || "بدون جرعة")} · ${escapeHtml(med.member.name)}</div>
           </div>
-          <div class="med-actions">
+<div class="med-actions">
+            <button class="icon-btn speak-dose-btn" onclick="speakMedDose('${med.medId}')" title="اضغط لتسمع جرعتك">🔉</button>
             <button class="icon-btn" onclick="openMedModal('${med.medId}')" title="تعديل">✏️</button>
           </div>
         </div>
@@ -1325,7 +1326,8 @@ function medCardHTML(med) {
             ${escapeHtml(med.dosage || "بدون جرعة")} · ${escapeHtml(member.name)} · ${daysLabel}
           </div>
         </div>
-        <div class="med-actions">
+<div class="med-actions">
+          <button class="icon-btn speak-dose-btn" onclick="speakMedDose('${med.id}')" title="اضغط لتسمع جرعتك">🔉</button>
           <button class="icon-btn" onclick="openMedModal('${med.id}')" title="تعديل">✏️</button>
           <button class="icon-btn delete" onclick="askDeleteMed('${med.id}')" title="حذف">🗑️</button>
         </div>

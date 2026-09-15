@@ -239,5 +239,142 @@ function renderEncyclopedia() {
   }
 }
 
+/* ============================================================
+   البحث الصوتي بالعربية 🎤 — Web Speech API (ar-SA)
+   يملأ حقل البحث فوراً ويشغّل البحث الموجود دون كسره
+   ============================================================ */
+
+var _voiceSearchRec = null;
+var _voiceSearchBtn = null;
+
+/* هل المتصفح يدعم التعرف الصوتي؟ */
+function _voiceSearchSupported() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+/* حالة زر الميكروفون (استماع / عادي) */
+function _voiceSearchSetListening(btn, listening) {
+  if (!btn) return;
+  if (listening) {
+    btn.classList.add("listening");
+    btn.textContent = "⏹";
+    btn.title = "إيقاف الاستماع";
+  } else {
+    btn.classList.remove("listening");
+    btn.textContent = "🎤";
+    btn.title = "ابحث بالصوت";
+  }
+}
+
+/* إيقاف أي استماع جارٍ */
+function _voiceSearchStop() {
+  if (_voiceSearchRec) {
+    try { _voiceSearchRec.stop(); } catch (e) {}
+    _voiceSearchRec = null;
+  }
+  _voiceSearchSetListening(_voiceSearchBtn, false);
+  _voiceSearchBtn = null;
+}
+
+/* البحث الصوتي العام — inputId: حقل البحث، onResult: دالة البحث بعد التعرف */
+function startVoiceSearch(inputId, onResult) {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    if (typeof showToast === "function") {
+      showToast("المتصفح لا يدعم البحث الصوتي — جرّب Chrome أو Edge", "info");
+    }
+    return;
+  }
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  var btn = document.getElementById("voiceSearchBtn_" + inputId);
+
+  /* ضغطة ثانية أثناء الاستماع = إيقاف */
+  if (_voiceSearchRec) {
+    _voiceSearchStop();
+    return;
+  }
+
+  var rec = new SR();
+  rec.lang = "ar-SA";
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  _voiceSearchRec = rec;
+  _voiceSearchBtn = btn;
+  _voiceSearchSetListening(btn, true);
+  if (typeof showToast === "function") showToast("🎤 تحدث الآن...", "success");
+
+  rec.onresult = function (e) {
+    try {
+      var text = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) text += e.results[i][0].transcript;
+      }
+      if (text) {
+        input.value = text;
+        if (typeof onResult === "function") onResult(text);
+        if (typeof showToast === "function") showToast("✓ تم التعرف: " + text, "success");
+      }
+    } catch (err) {
+      console.error("خطأ في نتيجة البحث الصوتي:", err);
+    }
+  };
+
+  rec.onerror = function (e) {
+    try {
+      var msg = "تعذر التعرف على الصوت";
+      if (e && e.error === "not-allowed") msg = "تم رفض إذن الميكروفون";
+      else if (e && e.error === "no-speech") msg = "لم أسمع صوتاً — حاول مجدداً";
+      else if (e && e.error === "network") msg = "التعرف الصوتي يحتاج اتصالاً بالإنترنت";
+      if (typeof showToast === "function") showToast(msg, "error");
+    } catch (err) {}
+    _voiceSearchStop();
+  };
+
+  rec.onend = function () {
+    _voiceSearchSetListening(btn, false);
+    _voiceSearchRec = null;
+    _voiceSearchBtn = null;
+  };
+
+  try {
+    rec.start();
+  } catch (err) {
+    console.error("خطأ في بدء البحث الصوتي:", err);
+    _voiceSearchStop();
+  }
+}
+
+/* البحث الصوتي في دليل الأدوية (الموسوعة) */
+function startEncyVoiceSearch() {
+  startVoiceSearch("encySearch", function () {
+    renderEncyclopedia();
+  });
+}
+
+/* البحث الصوتي في حقل البحث الرئيسي */
+function startHomeVoiceSearch() {
+  startVoiceSearch("searchInput", function () {
+    handleSearch(document.getElementById("searchInput").value);
+  });
+}
+
+/* إخفاء أزرار الميكروفون إن كان المتصفح لا يدعم التعرف الصوتي */
+function _voiceSearchInit() {
+  if (_voiceSearchSupported()) return;
+  var btns = document.querySelectorAll(".voice-search-btn");
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].style.display = "none";
+  }
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", _voiceSearchInit);
+  } else {
+    _voiceSearchInit();
+  }
+}
+
 /* ---------- علم الجاهزية ---------- */
 window.FEATURES_ENCYCLOPEDIA_READY = true;

@@ -354,6 +354,34 @@ function speakText(text) {
   }
 }
 
+/* ---------- قراءة جرعة دواء بالصوت (زر السماعة 🔉 على بطاقات الأدوية) ---------- */
+/* يحترم إعداد النطق الصوتي (appData.tts) — إن كان متوقفاً لا ينطق ويوجه المستخدم */
+function speakMedDose(medId) {
+  try {
+    if (!appData.tts) {
+      if (typeof showToast === "function") {
+        showToast("🔇 النطق الصوتي متوقف — فعّله من الإعدادات", "error");
+      }
+      return;
+    }
+    var med = null;
+    for (var i = 0; i < appData.medications.length; i++) {
+      if (appData.medications[i].id === medId) { med = appData.medications[i]; break; }
+    }
+    if (!med) {
+      if (typeof showToast === "function") showToast("الدواء غير موجود", "error");
+      return;
+    }
+    var text = "الآن حان وقت دواء " + (med.name || "دواء");
+    if (med.dosage) text += "، الجرعة: " + med.dosage;
+    text += "، بجانب الطعام";
+    if (med.notes) text += " " + med.notes;
+    speakText(text);
+  } catch (e) {
+    console.error("speakMedDose error:", e);
+  }
+}
+
 function renderVoiceHelp() {
   try {
     var container = document.getElementById("homeTab");

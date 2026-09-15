@@ -260,6 +260,21 @@
     }
     .icon-btn:hover { background: var(--bg); }
     .icon-btn.delete:hover { color: var(--danger); background: #fee2e2; }
+    /* ===== زر سماعة قراءة الجرعة 🔉 ===== */
+    .speak-dose-btn {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border: 1px solid var(--primary);
+      border-radius: 50%;
+      width: 34px; height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      padding: 0;
+    }
+    .speak-dose-btn:active { transform: scale(0.9); }
+    body.dark .speak-dose-btn { background: #134e4a; color: #99f6e4; }
     /* ===== الحالة الفارغة ===== */
     .empty-state {
       text-align: center;
@@ -732,7 +747,7 @@
     }
     .search-box input {
       width: 100%;
-      padding: 13px 42px 13px 14px;
+      padding: 13px 42px 13px 46px;
       border: 2px solid var(--border);
       border-radius: 14px;
       font-size: 1rem;
@@ -741,6 +756,35 @@
       color: var(--text);
     }
     .search-box input:focus { outline: none; border-color: var(--primary); }
+    /* ===== زر البحث الصوتي (Web Speech API) ===== */
+    .voice-search-btn {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px; height: 34px;
+      border: none;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      z-index: 2;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .voice-search-btn:active { transform: translateY(-50%) scale(0.92); }
+    .voice-search-btn.listening {
+      background: var(--danger);
+      color: #fff;
+      animation: pulse 1.5s infinite;
+    }
+    body.dark .voice-search-btn { background: #134e4a; color: #99f6e4; }
+    body.dark .voice-search-btn.listening { background: var(--danger); color: #fff; }
     .search-icon {
       position: absolute;
       right: 14px;
@@ -1047,6 +1091,73 @@
     body.large-text .fab { width: 66px; height: 66px; font-size: 2rem; }
     body.large-text .summary-item .num { font-size: 1.9rem; }
 
+    /* ===== وضع القراءة الكبير (ضعف البصر) — خط أكبر + أزرار أكبر + تباين أعلى ===== */
+    body.reading-mode {
+      font-size: 1.3rem;
+      --text: #0b3d39;
+      --text-muted: #3d5a57;
+      --border: #9ccfc8;
+    }
+    body.reading-mode .btn { font-size: 1.15rem; padding: 16px 24px; border-radius: 14px; }
+    body.reading-mode .med-name { font-size: 1.35rem; }
+    body.reading-mode .time-chip { font-size: 1.05rem; padding: 12px 16px; }
+    body.reading-mode .nav-item { font-size: 0.9rem; }
+    body.reading-mode .nav-item .nav-icon { font-size: 1.6rem; }
+    body.reading-mode .summary-item .num { font-size: 2.1rem; }
+    body.reading-mode .summary-item .label { font-size: 0.95rem; }
+    body.reading-mode .section-title h2 { font-size: 1.3rem; }
+    body.reading-mode .form-group input,
+    body.reading-mode .form-group select,
+    body.reading-mode .form-group textarea { font-size: 1.1rem; padding: 14px; }
+    body.reading-mode .vitals-card,
+    body.reading-mode .med-card,
+    body.reading-mode .report-card { padding: 20px; }
+    body.reading-mode .fab { width: 72px; height: 72px; font-size: 2.2rem; }
+    body.reading-mode .empty-state h3 { font-size: 1.3rem; }
+    body.reading-mode .empty-state p { font-size: 1rem; }
+    body.reading-mode .toast { font-size: 1.05rem; }
+    body.reading-mode .search-box input,
+    body.reading-mode .filter-row input,
+    body.reading-mode .filter-row select { font-size: 1.05rem; }
+    body.reading-mode .assistant-msg { font-size: 1rem; }
+    body.reading-mode .assistant-chip { font-size: 0.9rem; padding: 8px 14px; }
+
+    /* ===== وضع جودة المشاهدة لكبار السن 🧓 (طبقة إضافية — لا تكسر ما سبق) ===== */
+    body.senior-mode {
+      font-size: 1.2rem;
+      --text: #0a3d39;
+      --text-muted: #2f5a56;
+      --border: #7fbdb5;
+    }
+    body.senior-mode .btn { font-size: 1.1rem; padding: 15px 24px; border-radius: 14px; }
+    body.senior-mode .med-name { font-size: 1.25rem; }
+    body.senior-mode .med-dosage { font-size: 1rem; }
+    body.senior-mode .time-chip { font-size: 1rem; padding: 10px 14px; }
+    body.senior-mode .nav-item { font-size: 0.85rem; }
+    body.senior-mode .nav-item .nav-icon { font-size: 1.5rem; }
+    body.senior-mode .summary-item .num { font-size: 2rem; }
+    body.senior-mode .summary-item .label { font-size: 0.9rem; }
+    body.senior-mode .section-title h2 { font-size: 1.25rem; }
+    body.senior-mode .form-group input,
+    body.senior-mode .form-group select,
+    body.senior-mode .form-group textarea,
+    body.senior-mode .search-box input,
+    body.senior-mode .filter-row input,
+    body.senior-mode .filter-row select { font-size: 1.05rem; padding: 13px; }
+    body.senior-mode .fab { width: 68px; height: 68px; font-size: 2.1rem; }
+    body.senior-mode .empty-state h3 { font-size: 1.25rem; }
+    body.senior-mode .empty-state p { font-size: 1rem; }
+    body.senior-mode .toast { font-size: 1.05rem; }
+    body.senior-mode .assistant-msg { font-size: 1rem; }
+    body.senior-mode .assistant-chip { font-size: 0.9rem; padding: 8px 14px; }
+    body.senior-mode .tools-card .tc-title { font-size: 1rem; }
+    body.senior-mode .tools-card .tc-desc { font-size: 0.85rem; }
+    body.senior-mode .tools-quick-btn { font-size: 1rem; padding: 14px 12px; }
+    body.senior-mode .tools-ask-card .tac-title { font-size: 1rem; }
+    body.senior-mode .tools-ask-card .tac-desc { font-size: 0.8rem; }
+    body.senior-mode .vitals-value { font-size: 1.9rem; }
+    body.senior-mode .speak-dose-btn { width: 40px; height: 40px; font-size: 1.15rem; }
+
     /* ===== شارة التفاعل على بطاقة الدواء ===== */
     .interaction-badge {
       display: inline-flex;
@@ -1219,6 +1330,7 @@
     <div class="search-box">
       <span class="search-icon">🔍</span>
       <input type="text" id="searchInput" placeholder="ابحث عن دواء..." oninput="handleSearch(this.value)" onfocus="showAutocomplete(this.value)">
+      <button type="button" class="voice-search-btn" id="voiceSearchBtn_searchInput" onclick="startHomeVoiceSearch()" title="ابحث بالصوت">🎤</button>
       <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
     </div>
 
@@ -1357,7 +1469,10 @@
         <h2>📚 دليل الأدوية الشامل</h2>
       </div>
       <div class="filter-row">
-        <input type="text" id="encySearch" placeholder="🔍 ابحث عن دواء (عربي أو إنجليزي)..." oninput="renderEncyclopedia()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+        <div style="position:relative;flex:1;min-width:0;">
+          <input type="text" id="encySearch" placeholder="🔍 ابحث عن دواء (عربي أو إنجليزي)..." oninput="renderEncyclopedia()" style="width:100%;padding:10px 12px 10px 44px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
+          <button type="button" class="voice-search-btn" id="voiceSearchBtn_encySearch" onclick="startEncyVoiceSearch()" title="ابحث بالصوت">🎤</button>
+        </div>
         <select id="encyCategory" onchange="renderEncyclopedia()" style="padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.9rem;">
           <option value="">كل التصنيفات</option>
         </select>
@@ -1489,6 +1604,7 @@
           <div id="simpleModeToggle"></div>
           <div id="kidsModeToggle"></div>
           <div id="womenModeToggle"></div>
+          <div id="seniorModeToggle"></div>
           <div id="voiceHelpCard"></div>
         </div>
         <div class="settings-group">
@@ -2018,6 +2134,7 @@
   <script src="features-kids.js"></script>
   <script src="features-women.js"></script>
   <script src="features-voice.js"></script>
+  <script src="features-senior.js"></script>
   <script src="features-tools.js"></script>
   <script src="features-encyclopedia.js"></script>
 </body>

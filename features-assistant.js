@@ -6,20 +6,24 @@
 
 "use strict";
 
-/* ---------- الأسئلة السريعة الجاهزة ---------- */
+/* ---------- الأسئلة السريعة الجاهزة (الخمسة الأهم أولاً لكبار السن) ---------- */
 var ASSISTANT_QUICK_QUESTIONS = [
-  "كم دواء عندي؟",
-  "متى جرعتي القادمة؟",
-  "كيف التزامي اليوم؟",
-  "هل أدويتي تتعارض؟",
-  "آخر قراءاتي؟",
+  "جرعتي القادمة؟",
+  "كم دواءً عندي؟",
+  "التزامي اليوم؟",
+  "تقريري اليومي؟",
+  "التزامي الشهري؟",
+  "آخر ضغط/سكر؟",
+  "أدويتي تتعارض؟",
   "أعراضي؟",
   "مواعيدي؟",
+  "أقرب موعد طبيب؟",
   "عائلتي؟",
   "تطعيماتي؟",
   "أدوية تنتهي قريباً؟",
   "أحتاج تعبئة؟",
-  "التزامي الشهري؟"
+  "جرعاتي المتبقية اليوم؟",
+  "نصيحة صحية؟"
 ];
 
 /* ---------- نصائح ختامية ---------- */
@@ -580,7 +584,8 @@ function personalAssistant(q) {
     /* 3) الالتزام اليومي */
     if (text.indexOf("التزامي") !== -1 || text.indexOf("كم اخذت") !== -1 ||
         text.indexOf("التزام") !== -1 || text.indexOf("اخذت اليوم") !== -1 ||
-        text.indexOf("جرعاتي اليوم") !== -1) {
+        text.indexOf("جرعاتي اليوم") !== -1 || text.indexOf("تقريري") !== -1 ||
+        text.indexOf("جرعاتي") !== -1) {
       return _assistantAdherence(greeting);
     }
 
@@ -589,7 +594,8 @@ function personalAssistant(q) {
         text.indexOf("قراءاتي الاخيره") !== -1 || text.indexOf("قياساتي") !== -1 ||
         text.indexOf("اخر قياس") !== -1 || text.indexOf("سكري") !== -1 ||
         text.indexOf("وزني") !== -1 || text.indexOf("السكر") !== -1 ||
-        text.indexOf("الوزن") !== -1) {
+        text.indexOf("الوزن") !== -1 || text.indexOf("اخر ضغط") !== -1 ||
+        text.indexOf("اخر سكر") !== -1) {
       return _assistantAllVitals(greeting);
     }
 
@@ -659,6 +665,11 @@ function personalAssistant(q) {
       }
     }
 
+    /* 13b) نصيحة صحية سريعة */
+    if (text.indexOf("نصيحه") !== -1 || text.indexOf("نصيحة") !== -1) {
+      return greeting + "<br>" + _assistantTip();
+    }
+
     /* 14) أي سؤال آخر — رد ذكي يقترح الأسئلة المتاحة */
     var html = greeting + "<br>يمكنني مساعدتك في:";
     html += "<ul>";
@@ -705,7 +716,8 @@ function _assistantInjectStyles() {
     ".assistant-msg ul{margin:6px 0 2px;padding-right:18px;}" +
     ".assistant-msg li{margin-bottom:4px;}" +
     ".assistant-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--card,#fff);" +
-    "border-top:1px solid var(--border,#e2f3f0);}" +
+    "border-top:1px solid var(--border,#e2f3f0);max-height:110px;overflow-y:auto;}" +
+    ".assistant-chips-title{width:100%;font-size:.72rem;font-weight:800;color:var(--text-muted,#5b7d7a);margin-bottom:2px;}" +
     ".assistant-chip{background:var(--primary-light,#ccfbf1);color:var(--primary-dark,#0f766e);" +
     "border:1px solid var(--primary,#0d9488);border-radius:16px;padding:5px 10px;font-size:.74rem;" +
     "cursor:pointer;font-family:inherit;}" +
@@ -784,7 +796,7 @@ function _assistantScrollDown() {
 function _assistantRenderChips() {
   var chips = document.getElementById("assistantChips");
   if (!chips) return;
-  var html = "";
+  var html = '<div class="assistant-chips-title">⚡ أسئلة سريعة — اضغط للسؤال</div>';
   for (var i = 0; i < ASSISTANT_QUICK_QUESTIONS.length; i++) {
     html += '<button class="assistant-chip" onclick="askAssistantQuick(\'' +
       _assistantEscAttr(ASSISTANT_QUICK_QUESTIONS[i]) + '\')">' +
@@ -868,6 +880,12 @@ function askAssistantQuick(q) {
   var input = document.getElementById("assistantChatInput");
   if (input) input.value = q;
   sendAssistantMessage();
+}
+
+/* فتح لوحة المساعد ثم إرسال سؤال سريع (تستدعيها كروت لوحة الأدوات) */
+function askAssistantQuickOpen(q) {
+  if (typeof openAssistantChat === "function") openAssistantChat();
+  askAssistantQuick(q);
 }
 
 /* ============================================================

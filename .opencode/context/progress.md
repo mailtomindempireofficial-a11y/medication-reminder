@@ -201,3 +201,155 @@
 - [x] `window.FEATURES_ASSISTANT_READY === true`
 - [x] ES5 خالص (بدون let/const/arrow/async/template literals — التحقق بعد إزالة التعليقات)
 - [x] اختبار وظيفي 15/15 في Node (vm): كل أنماط الإجابة الـ 14 + الرد الذكي
+
+---
+
+## تسليم: frontend-dev — وضع كبار السن المبسّط + معالج الإعداد السريع (features-simple.js)
+
+### الملفات المنشأة/المعدلة
+- `features-simple.js` (جديد): الوحدة 1 من blueprint v2.1 — وضع كبار السن المبسّط (شاشة جرعة قادمة ضخمة + أزرار عملاقة) + معالج الإعداد السريع (3 خطوات)
+- `.opencode/context/progress.md` (معدل): إضافة قسم التسليم هذا
+
+### الواجهات المتاحة للآخرين
+- `isSimpleMode()`: ترجع true إذا `localStorage[STORAGE_KEY+"_simpleMode"] === "1"`
+- `setSimpleMode(on)`: تحفظ "1"/"0" + تضيف/تزيل class `simple-mode` من body + renderAll + renderSimpleHome + toast
+- `toggleSimpleMode()`: تبديل الوضع
+- `renderSimpleHome()`: ترسم في `#homeTab` (تنشئها ديناميكياً إن لم توجد) — عنوان "💊 جرعتك القادمة" + بطاقة ضخمة (اسم 2rem / وقت 3rem / جرعة) + زر "✅ أخذتها" (markDose) + "⏰ تأجيل 10 دقائق" (snoozeDose) + "🔊 أعد القراءة" (speakText أو SpeechSynthesis) + حالة فارغة "لا توجد أدوية اليوم 🎉" + زر "➕ إضافة دواء" (openMedModal) + قراءة صوتية تلقائية عند تفعيل tts
+- `renderSimpleModeToggle()`: بطاقة مفتاح "🧓 وضع كبار السن" في `#settingsSection` (ترجع بصمت إن لم يوجد)
+- `shouldShowQuickSetup()`: true إذا لا أدوية و `STORAGE_KEY+"_setupDone"` غير موجود
+- `markSetupDone()`: تحفظ `STORAGE_KEY+"_setupDone" = "1"`
+- `startQuickSetup()`: نافذة 3 خطوات — (1) اسم الدواء (2) أوقات: صباحاً 8:00 / ظهراً 13:00 / مساءً 20:00 + تخصيص (3) عدد المرات: مرة/مرتين/3 مرات → ينشئ الدواء ببنية appData كاملة + saveData + markSetupDone + renderAll + toast
+- `renderQuickSetupModal()`: تعادل startQuickSetup (واجهة القائد)
+- علم الجاهزية: `window.FEATURES_SIMPLE_READY = true`
+
+### القرارات المهمة
+- **ES5 خالص**: بدون let/const/arrow/async/template literals (تحقق آلي: 0 مخالفة)
+- **`#homeTab` تُنشأ ديناميكياً**: غير موجودة في index.html → `_simpleEnsureHomeTab()` تنشئها كأول عنصر في `<main>` (نمط features-assistant.js) — القائد لا يحتاج تعديل HTML
+- **CSS يُحقن عبر JS**: `_simpleInjectStyles()` مرة واحدة — `body.simple-mode` يخفي الشريط السفلي/الـ fab/أقسام الرئيسية ويعرض `#homeTab` فقط (بلا تعديل index.html)
+- **حماية كل استدعاء خارجي**: typeof-check لكل دوال app.js (renderAll, saveData, markDose, snoozeDose, openMedModal, uid, getTodayDoses, timeToMinutes, nowTime, todayStr, escapeHtml, showToast) مع fallbacks داخلية — الملف يعمل حتى لو حُمّل قبل app.js
+- **الجرعة القادمة**: `_simpleGetNextDose()` تختار أول جرعة غير مأخوذة بوقت ≥ الآن، وإلا أول جرعة فائتة غير مأخوذة، وإلا null (كل الجرعات أُخذت)
+- **توزيع المرات**: عند اختيار "مرتين" من 3 أوقات مختارة → تُرتَّب الأوقات وتُؤخذ الأولى فقط (مرة واحدة → الأولى، 3 مرات → كلها)؛ بلا اختيار → افتراضيات 8:00 / 8:00+20:00 / 8:00+13:00+20:00
+- **معالجة أخطاء**: try/catch في كل دالة عامة + `if (!el) return;` في دوال الرسم (قاعدة blueprint 7 و8)
+- **تعقيم المدخلات**: `_simpleEsc()` (تستخدم escapeHtml العامة إن وُجدت) لكل قيمة تُحقن في HTML
+
+### التحقق
+- [x] `node --check features-simple.js` — نجح بدون أخطاء (SYNTAX_OK)
+- [x] كل الدوال الـ 9 العامة معرفة (ALL_DEFINED: true)
+- [x] `window.FEATURES_SIMPLE_READY === true`
+- [x] ES5 خالص (0 let/const / 0 arrow / 0 template literals / 0 async)
+- [x] اختبار وظيفي 15/15 في Node (vm): isSimpleMode (افتراضي/تفعيل/تبديل)، shouldShowQuickSetup (جديد/بعد الإنهاء/مع أدوية)، إنشاء دواء ببنية صحيحة (times=["08:00","13:00"] لـ "مرتين")، اختيار الجرعة القادمة (13:00 عند 10:00)، تسجيل markDose، رسم الشاشة في 3 حالات (أدوية/كلها مأخوذة/فارغة)
+
+---
+
+## تسليم: frontend-dev — تحسين التحكم الصوتي (features-voice.js)
+
+### الملفات المنشأة/المعدلة
+- `features-voice.js` (جديد): وحدة التحكم الصوتي الكاملة — أوامر صوتية (إضافة دواء، تسجيل جرعة، عرض الجرعة القادمة، فحص الأعراض، مساعدة) + استماع مستمر + نطق عربي
+- `.opencode/context/progress.md` (معدل): إضافة قسم التسليم هذا
+
+### الواجهات المتاحة للآخرين
+- `VOICE_COMMANDS`: مصفوفة 7 أوامر `{cmd, example, desc}` — "أضف دواء"، "خذ دوائي"، "أخذت"، "أين دوائي"، "الجرعة القادمة"، "أشعر بـ"، "مساعدة"
+- `startVoiceCommand()`: تبدأ الاستماع (webkitSpeechRecognition، lang "ar-SA"، interimResults false، continuous true) — تتحقق من الدعم وإلا toast "المتصفح لا يدعم التعرف الصوتي" — onresult → processVoiceCommand، onerror → toast مخصص (not-allowed/no-speech/network)، onend → إعادة تشغيل تلقائية كل 300ms — مؤشر بصري "🎤 جارٍ الاستماع..." (عنصر ديناميكي بنبض CSS)
+- `stopVoiceCommand()`: توقف الاستماع + تزيل المؤشر + toast "⏹ تم إيقاف الاستماع"
+- `processVoiceCommand(text)`: تحليل النص (تطبيع: lowercase + إزالة تشكيل \u064B-\u065F) — "أضف/اضف دواء X" → openMedModal + تعبئة الاسم، "خذ/أخذت" → تسجيل الجرعة القادمة عبر markDose، "أين/الجرعة القادمة/متى" → عرض الجرعة القادمة، "أشعر/اشعر" → symptomChecker، "مساعدة/ساعدني" → عرض الأوامر، غير معروف → "لم أفهم الأمر. قل: مساعدة لمعرفة الأوامر"
+- `speakText(text)`: نطق عربي (SpeechSynthesisUtterance، lang "ar-SA"، rate 0.95، اختيار صوت عربي voices.filter lang.indexOf("ar")===0) — تتحقق من window.speechSynthesis وإلا return
+- `renderVoiceHelp()`: ترسم بطاقة "🎤 الأوامر الصوتية" في `#homeTab` (أو `#settingsSection` إن لم يوجد) — قائمة الأوامر + زر "🎤 ابدأ الاستماع" + زر "⏹ إيقاف" — idempotent (لا تكرر البطاقة)
+- علم الجاهزية: `window.FEATURES_VOICE_READY = true`
+
+### القرارات المهمة
+- **ES5 خالص**: بدون let/const/arrow/async/template literals (تحقق آلي بعد إزالة التعليقات: 0 مخالفة)
+- **openMedModal("") + تعبئة #medName**: دالة openMedModal في app.js تقبل معاملاً واحداً فقط (id) — فبدلاً من openMedModal("", name) نفتح النافذة ثم نضع الاسم في حقل #medName لتحقيق نفس السلوك المطلوب
+- **مطابقة مرنة للهمزة**: التعرف الصوتي قد يُرجع "اضف" بدون همزة — نطابق "أضف" و"اضف" معاً (وكذلك "أشعر"/"اشعر")
+- **استماع مستمر مزدوج**: rec.continuous = true + إعادة تشغيل تلقائية في onend (مع تأخير 300ms وتحقّق _voiceListening/_voiceRecognition لمنع إعادة التشغيل بعد الإيقاف)
+- **الجرعة القادمة الذكية**: تبحث أولاً عن أول جرعة غير مأخوذة بوقت ≥ الآن، فإن لم توجد تعود لأول جرعة غير مأخوذة (fallback)
+- **تطبيع النص**: lowercase + إزالة التشكيل (\u064B-\u065F، \u0670، \u0640) + توحيد المسافات — يتحمل اختلافات نطق المتكلم
+- **تعقيم المدخلات**: `_voiceEsc()` (تستخدم escapeHtml العامة أو fallback يدوي) لكل قيمة تُحقن في HTML
+- **معالجة أخطاء**: try/catch في كل دالة عامة + typeof check لكل دالة خارجية (getTodayDoses, markDose, symptomChecker, openMedModal, renderToday, updateSummary, todayStr, timeToMinutes, escapeHtml)
+- **لا تعديل startVoiceInput**: أضفت دوالاً جديدة فقط (قاعدة blueprint)
+- **لا مكتبات خارجية**: Web Speech API + SpeechSynthesis API فقط
+
+### التحقق
+- [x] `node --check features-voice.js` — نجح بدون أخطاء (SYNTAX_OK)
+- [x] كل الدوال الـ 6 العامة معرفة (VOICE_COMMANDS, startVoiceCommand, stopVoiceCommand, processVoiceCommand, speakText, renderVoiceHelp)
+- [x] `window.FEATURES_VOICE_READY === true`
+- [x] ES5 خالص (0 let/const / 0 arrow / 0 async / 0 template literals — بعد إزالة التعليقات)
+- [x] اختبار وظيفي 25/25 في Node (vm): إضافة دواء بالاسم، تسجيل الجرعة القادمة، عرض الجرعة، فحص الأعراض، المساعدة، الأمر غير المعروف، التطبيع (تشكيل/lowercase)، عدم دعم المتصفح، رسم بطاقة المساعدة
+
+---
+
+## تسليم: frontend-dev — وضع الأطفال (features-kids.js)
+
+### الملفات المنشأة/المعدلة
+- `features-kids.js` (جديد): وضع الأطفال الكامل — نجوم + شخصية كرتونية + سلسلة أيام + شاشة ملونة مبسطة + مفتاح تبديل
+- `.opencode/context/progress.md` (معدل): إضافة قسم التسليم هذا
+
+### الواجهات المتاحة للآخرين
+- `KIDS_MASCOTS`: مصفوفة 6 شخصيات ["🐻","🐱","🦊","🐰","🐼","🦁"]
+- `KIDS_COLORS`: مصفوفة 6 ألوان خلفية ناعمة ["#dbeafe","#dcfce7","#fef9c3","#fce7f3","#ede9fe","#ffedd5"]
+- `isKidsMode()`: ترجع true إذا `localStorage[STORAGE_KEY+"_kidsMode"] === "1"`
+- `toggleKidsMode()`: تبديل الوضع + renderAll + showToast (يختار شخصية عشوائية عند التفعيل)
+- `getStarsForToday()`: عدد الجرعات المأخوذة اليوم عبر isDoseTaken لكل دواء نشط × كل وقت
+- `getStreak()`: الأيام المتتالية (من اليوم للخلف) التي أُخذت فيها كل الجرعات المستحقة — توقف عند أول يوم ناقص
+- `getKidsMessage(stars)`: رسالة تشجيع عشوائية (0 → "ابدأ يومك! أنت بطل 💪" / 1-2 → "أحسنت! استمر! 🎉" / 3+ → "ممتاز! أنت نجم! ⭐⭐⭐")
+- `renderKidsHome()`: شاشة ملونة في #homeTab — شخصية بحجم 5rem + رسالة + عداد "⭐ x N" + "🔥 N أيام متتالية" + بطاقات جرعات ملونة بزر ضخم "✅ أخذتها" (markDose + إعادة رسم) أو "✔ تم" رمادي
+- `renderKidsModeToggle()`: مفتاح تبديل في #settingsSection (بطاقة "🎮 وضع الأطفال" + وصف + زر تبديل) — ترجع بدون خطأ إن لم يوجد #settingsSection
+- `renderKidsModeToggleIn(container)`: دالة مساعدة داخلية لإعادة استخدام بطاقة التبديل (تُستدعى أيضاً أسفل شاشة الأطفال)
+- علم الجاهزية: `window.FEATURES_KIDS_READY = true`
+
+### القرارات المهمة
+- **ES5 خالص**: بدون let/const/arrow/async/template literals (تحقق آلي: 0 مخالفة)
+- **شخصية ثابتة في الجلسة**: `_kidsMascotSession` تُختار عشوائياً عند التفعيل وتبقى ثابتة حتى إعادة التفعيل (اتساق التجربة للطفل)
+- **CSS منزّل عبر JS**: أنماط وضع الأطفال تُحقن كـ `<style>` مرة واحدة داخل #homeTab — لا تعديل على index.html (قاعدة blueprint 51)
+- **تعقيم المدخلات**: `_kidEsc()` تستخدم escapeHtml العامة إن وُجدت أو fallback يدوي — أسماء الأدوية والمعرّفات تُعقّم قبل الحقن
+- **معالجة أخطاء**: try/catch في كل دالة + تحقق `if (!el) return;` في دوال الرسم + تحقق typeof للدوال الخارجية (isDoseTaken, markDose, todayStr, renderAll, showToast, escapeHtml)
+- **الاعتماد على appData فقط**: لا بيانات جديدة تُحفظ — كل القراءة من appData.medications و med.log عبر isDoseTaken
+- **زر "✅ أخذتها"**: يستدعي markDose(medId, time, today, true) ثم renderAll — يعيد رسم الشاشة فوراً مع النجمة الجديدة
+
+### التحقق
+- [x] `node --check features-kids.js` — نجح بدون أخطاء (SYNTAX_OK)
+- [x] كل الدوال الـ 10 معرفة في النطاق العام (ALL_DEFINED: true)
+- [x] `window.FEATURES_KIDS_READY === true`
+- [x] ES5 خالص (0 let/const / 0 arrow / 0 template literals)
+- [x] `KIDS_MASCOTS` = 6 شخصيات، `KIDS_COLORS` = 6 ألوان (مطابقة للطلب)
+
+---
+
+## تسليم: frontend-dev — وضع المرأة (features-women.js)
+
+### الملفات المنشأة/المعدلة
+- `features-women.js` (جديد): وضع المرأة الكامل — تتبع الدورة الشهرية + توقع الدورة القادمة + تذكير حبوب منع الحمل + مفتاح تبديل
+- `.opencode/context/progress.md` (معدل): إضافة قسم التسليم هذا
+
+### الواجهات المتاحة للآخرين
+- `isWomenMode()`: ترجع true إذا `localStorage[STORAGE_KEY+"_womenMode"] === "1"`
+- `toggleWomenMode()`: تبديل الوضع + renderAll + renderWomenModeToggle + renderWomenSection + showToast
+- `addPeriodEntry(date)`: تضيف {date, flow: "متوسط"} إلى appData.periods (تهيئة آمنة + منع التكرار) + saveData + المفتاح الخاص + إعادة رسم تتبع الدورة
+- `deletePeriodEntry(date)`: تحذف سجل الدورة بالتاريخ + saveData + المفتاح الخاص + إعادة رسم
+- `predictNextPeriod()`: تحسب متوسط الفرق بين آخر 3 تواريخ (UpTo 3 last dates) + تضيفه لآخر تاريخ → ترجع Date أو null إن كان أقل من تاريخين
+- `renderPeriodTracker()`: ترسم بطاقة في `#womenSection` — زر "➕ تسجيل اليوم" + آخر 5 دورات (تاريخ + حذف) + توقع الدورة القادمة مع الأيام المتبقية
+- `addPillReminder(time)`: تحفظ {time, lastTaken: "", streak: 0} في appData.pillReminder + saveData + المفتاح الخاص
+- `promptPillReminder()`: تطلب الوقت عبر window.prompt + تحقق من HH:MM + تستدعي addPillReminder
+- `markPillTaken()`: تسجل lastTaken = todayStr() + streak++ + saveData + المفتاح الخاص (تمنع التكرار اليومي)
+- `renderPillReminder()`: ترسم بطاقة في `#womenSection` — "💊 حان وقت حبوبك [الوقت]" + زر "✅ أخذتها" + "🔥 سلسلة: N يوم" + تنبيه النسيان/التسجيل
+- `renderWomenSection()`: ترسم القسم الكامل في `#womenSection` — عنوان "🌸 صحة المرأة" + تتبع الدورة + تذكير الحبوب + نصائح
+- `renderWomenModeToggle()`: ترسم مفتاح تبديل في `#settingsSection` — بطاق "🌸 وضع المرأة" + زر تبديل (idempotent)
+- علم الجاهزية: `window.FEATURES_WOMEN_READY = true`
+
+### القرارات المهمة
+- **ES5 خالص**: بدون let/const/arrow/async/template literals (تحقق آلي: 0 مخالفة)
+- **مزامنة مزدوجة للبيانات**: `_womenPersist()` تستدعي saveData() (عقد الواجهة) + تكتب في `STORAGE_KEY + "_womenData"` — السبب: loadData() في app.js لا يستعيد appData.periods/pillReminder من localStorage (قائمة بيضاء محددة فقط)، فبدون المفتاح الخاص تُفقد البيانات عند إعادة التحميل
+- **تهديد JSON**: `_womenLoadData()` تُستدعى في DOMContentLoaded + في renderWomenSection — تحمي من فقدان البيانات إذا استُدعي renderWomenSection قبل التحميل الأولي
+- **منع التكرار**: addPeriodEntry يتحقق من عدم تكرار التاريخ، markPillTaken يتحقق من lastTaken !== todayStr()
+- **เตือน نسيان ذكي**: renderPillReminder تميّز بين: أخذت اليوم ✅ / لم تسجلي بعد (منشأ جديد) ⚠️ / نسيت حبوبك ⚠️ — رسائل مختلفة لكل حالة
+- **تنبؤ بآخر 3 فقط**: predictNextPeriod تأخذ آخر 3 دورات (UpTo 3) لتقليل تأثير الدورات غير المنتظمة القديمة
+- **حاويات فرعية**: renderPeriodTracker/renderPillReminder يستخدمان `_womenContainer()` لإنشاء #periodTrackerCard/#pillReminderCard داخل #womenSection — تسمح بإعادة رسم مستقلة بدون حذف محتوى الآخر
+- **مفتاح تبديل idempotent**: renderWomenModeToggle يتحقق من وجود womenModeSwitch وحدّث فئة on فقط (بدون تكرار البطاقة)
+- **حماية من المتصفح**: التهيئة مسجلة بـ typeof document !== "undefined" — آمنة في Node
+- **معالجة أخطاء**: try/catch في كل دالة عامة + تحقق `if (!el) return;` في دوال الرسم + `typeof X === "function"` لكل دالة خارجية
+
+### التحقق
+- [x] `node --check features-women.js` — نجح بدون أخطاء (SYNTAX_OK)
+- [x] كل الدوال العشرون معرفة في النطاق العام (ALL_DEFINED: true)
+- [x] `window.FEATURES_WOMEN_READY === true`
+- [x] ES5 خالص (0 let/const / 0 arrow / 0 async / 0 template literals)
+- [x] اختبار وظيفي 39/39 في Node (vm): isWomenMode، toggleWomenMode، addPeriodEntry (3 إضافات)، منع التكرار، حفظ المفتاح الخاص، deletePeriodEntry، predictNextPeriod (3 تواريخ + date + null مع تاريخ واحد + آخر 3 فقط)، addPillReminder، markPillTaken (+ منع التكرار اليومي)، renderWomenSection (عنوان + نصائح)، renderPeriodTracker (زر + توقع + أيام متبقية)، renderPillReminder (سلسلة + تنبيه نسيان + زر إعداد)، renderWomenModeToggle (بطاقة + لا تكرار + تحديث حالة + بدون حاوية)

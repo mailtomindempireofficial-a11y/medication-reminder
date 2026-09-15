@@ -1,7 +1,7 @@
 /* Service Worker — تذكير الدواء
    يخزن التطبيق محلياً ليعمل بدون إنترنت */
 
-const CACHE_NAME = "med-reminder-v11";
+const CACHE_NAME = "med-reminder-v12";
 const ASSETS = [
   "./",
   "./index.html",

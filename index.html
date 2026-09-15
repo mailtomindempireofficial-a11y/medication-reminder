@@ -642,7 +642,7 @@
     }
 
     /* ============================================================
-       الإضافات الجديدة — الإصدار 2.0
+       الإضافات الجديدة — الإصدار 2.1
        ============================================================ */
 
     /* ===== الوضع الليلي ===== */
@@ -1270,6 +1270,10 @@
         <h3>🩺 تتبع ضغط الدم</h3>
       </div>
       <div id="bpTracker"></div>
+      <div class="section-title" style="margin-top:16px;">
+        <h3>🌸 صحة المرأة</h3>
+      </div>
+      <div id="womenSection"></div>
     </section>
 
     <!-- سجل الأعراض -->
@@ -1466,6 +1470,13 @@
           <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">يفتح واتساب/تيليجرام برسالة جاهزة — اضغط إرسال لتأكيد التذكير.</p>
         </div>
         <div class="settings-group">
+          <h4>👥 وضعيات المستخدم</h4>
+          <div id="simpleModeToggle"></div>
+          <div id="kidsModeToggle"></div>
+          <div id="womenModeToggle"></div>
+          <div id="voiceHelpCard"></div>
+        </div>
+        <div class="settings-group">
           <h4>📅 التقويم</h4>
           <button class="btn btn-outline btn-block" onclick="exportICS()">📅 تصدير مواعيد الأدوية إلى التقويم (ICS)</button>
           <p style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">يفتح في Google Calendar / Outlook / أي تطبيق تقويم — تذكيرات مزدوجة.</p>
@@ -1519,7 +1530,7 @@
           <h4>حول التطبيق</h4>
           <p style="font-size:0.85rem;color:var(--text-muted);">
             تذكير الدواء — تطبيق عربي مجاني لإدارة الأدوية. بياناتك تبقى على جهازك فقط.
-            <br>الإصدار 2.0
+            <br>الإصدار 2.1
           </p>
         </div>
       </div>
@@ -1985,5 +1996,9 @@
   <script src="features-sharing.js"></script>
   <script src="features-assistant.js"></script>
   <script src="features-tour.js"></script>
+  <script src="features-simple.js"></script>
+  <script src="features-kids.js"></script>
+  <script src="features-women.js"></script>
+  <script src="features-voice.js"></script>
 </body>
 </html>

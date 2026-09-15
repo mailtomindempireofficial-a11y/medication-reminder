@@ -1,6 +1,6 @@
 ﻿/* ============================================================
    تذكير الدواء — تطبيق إدارة الأدوية العربي
-   الإصدار 2.0 — يعمل بالكامل على جهاز المستخدم (Offline First)
+   الإصدار 2.1 — يعمل بالكامل على جهاز المستخدم (Offline First)
    ============================================================ */
 
 "use strict";
@@ -45,7 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
   renderRamadanBanner();
   renderTravelBanner();
   webdavAutoSync();
-  if (typeof shouldShowTour === "function" && shouldShowTour()) {
+  if (typeof shouldShowQuickSetup === "function" && shouldShowQuickSetup()) {
+    setTimeout(function () { startQuickSetup(); }, 900);
+  } else if (typeof shouldShowTour === "function" && shouldShowTour()) {
     setTimeout(function () { renderWelcomeModal(); }, 600);
   }
 });
@@ -227,6 +229,23 @@ function getMissedCountToday() {
 
 /* ---------- العرض الرئيسي ---------- */
 function renderAll() {
+  if (typeof isSimpleMode === "function" && isSimpleMode()) {
+    if (typeof renderSimpleHome === "function") renderSimpleHome();
+    updateSummary();
+    updateGreeting();
+    checkDoseAlert();
+    return;
+  }
+  if (typeof isKidsMode === "function" && isKidsMode()) {
+    _ensureModeHomeTab();
+    _setKidsModeLayout(true);
+    if (typeof renderKidsHome === "function") renderKidsHome();
+    updateSummary();
+    updateGreeting();
+    checkDoseAlert();
+    return;
+  }
+  _setKidsModeLayout(false);
   renderToday();
   renderAllMeds();
   renderReports();
@@ -235,6 +254,38 @@ function renderAll() {
   updateGreeting();
   checkDoseAlert();
   checkInteractions();
+}
+
+/* ضمان وجود حاوية #homeTab للوضعيات الخاصة */
+function _ensureModeHomeTab() {
+  var el = document.getElementById("homeTab");
+  if (el) return el;
+  el = document.createElement("div");
+  el.id = "homeTab";
+  var main = document.querySelector("main");
+  if (main) main.insertBefore(el, main.firstChild);
+  else document.body.appendChild(el);
+  return el;
+}
+
+/* إخفاء/إظهار الأقسام العادية عند تفعيل وضع الأطفال */
+function _setKidsModeLayout(on) {
+  if (on) {
+    document.body.classList.add("kids-mode-active");
+    if (!window._KIDS_MODE_STYLES_INJECTED) {
+      window._KIDS_MODE_STYLES_INJECTED = true;
+      var st = document.createElement("style");
+      st.textContent =
+        "body.kids-mode-active .bottom-nav{display:none!important;}" +
+        "body.kids-mode-active .fab{display:none!important;}" +
+        "body.kids-mode-active #todaySection{display:none!important;}" +
+        "body.kids-mode-active #allSection{display:none!important;}" +
+        "body.kids-mode-active #homeTab{display:block!important;}";
+      document.head.appendChild(st);
+    }
+  } else {
+    document.body.classList.remove("kids-mode-active");
+  }
 }
 
 function renderToday() {
@@ -778,7 +829,7 @@ document.getElementById("settingsSection").classList.toggle("hidden", tab !== "s
   document.getElementById("safetySection").classList.toggle("hidden", tab !== "safety");
 
   // تحديث بيانات الأقسام الجديدة عند فتحها
-  if (tab === "vitals") { renderVitals(); renderVitalsChart(); renderBpTracker(); }
+  if (tab === "vitals") { renderVitals(); renderVitalsChart(); renderBpTracker(); if (typeof renderWomenSection === "function") renderWomenSection(); }
   if (tab === "symptoms") { renderSymptoms(); renderSymptomMedLink(); }
   if (tab === "report") { renderHeatmap(); renderAppointments(); renderAlertHistory(); }
 if (tab === "encyclopedia") { populateEncyCategories(); renderEncyclopedia(); renderHerbs(); renderFoodInteractions(); renderTreatmentPlans(); }
@@ -799,13 +850,16 @@ function loadSettingsUI() {
   if (pinSw) pinSw.classList.toggle("on", !!appData.pin);
   const pinSetup = document.getElementById("pinSetup");
   if (pinSetup) pinSetup.classList.add("hidden");
-  const contacts = appData.contacts || {};
+const contacts = appData.contacts || {};
   const d = document.getElementById("contactDoctor");
   const p = document.getElementById("contactPharmacy");
   const e = document.getElementById("contactEmergency");
   if (d) d.value = contacts.doctor || "";
   if (p) p.value = contacts.pharmacy || "";
   if (e) e.value = contacts.emergency || "";
+  if (typeof renderSimpleModeToggle === "function") renderSimpleModeToggle();
+  if (typeof renderKidsModeToggle === "function") renderKidsModeToggle();
+  if (typeof renderVoiceHelp === "function") renderVoiceHelp();
 }
 
 /* ---------- النوافذ المنبثقة ---------- */

@@ -1,6 +1,6 @@
 ﻿/* ============================================================
    تذكير الدواء — تطبيق إدارة الأدوية العربي
-   الإصدار 1.9 — يعمل بالكامل على جهاز المستخدم (Offline First)
+   الإصدار 2.0 — يعمل بالكامل على جهاز المستخدم (Offline First)
    ============================================================ */
 
 "use strict";
@@ -45,6 +45,9 @@ document.addEventListener("DOMContentLoaded", () => {
   renderRamadanBanner();
   renderTravelBanner();
   webdavAutoSync();
+  if (typeof shouldShowTour === "function" && shouldShowTour()) {
+    setTimeout(function () { renderWelcomeModal(); }, 600);
+  }
 });
 
 /* ---------- إدارة البيانات (localStorage) ---------- */
@@ -2762,10 +2765,10 @@ function renderEncyclopedia() {
   let drugs = getFullEncyclopedia();
   if (q) {
     const nq = normalizeName(q);
-    drugs = drugs.filter(d =>
+drugs = drugs.filter(d =>
       normalizeName(d.ar).includes(nq) ||
       normalizeName(d.en).includes(nq) ||
-      d.brands.some(b => normalizeName(b).includes(nq)));
+      (Array.isArray(d.brands) && d.brands.some(b => normalizeName(b).includes(nq))));
   }
   if (cat) drugs = drugs.filter(d => broadCategory(d.cat) === cat);
   document.getElementById("encyCount").textContent = `${drugs.length} دواء`;
@@ -3955,7 +3958,10 @@ function addCustomDrug() {
 }
 function getFullEncyclopedia() {
   var base = (typeof DRUG_ENCYCLOPEDIA !== "undefined" ? DRUG_ENCYCLOPEDIA : []);
-  return base.concat(getCustomDrugs());
+  return base.concat(getCustomDrugs()).map(function(d) {
+    if (!Array.isArray(d.brands)) d.brands = [];
+    return d;
+  });
 }
 
 /* ---------- فتح موعد الطبيب في خرائط جوجل ---------- */

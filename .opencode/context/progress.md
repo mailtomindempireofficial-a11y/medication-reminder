@@ -117,3 +117,87 @@
 - [x] ES5 خالص على كامل الملف (0 arrow / 0 let/const / 0 template / 0 async)
 - [x] اختبار وظيفي 27/27 في Node (vm): دورة QR كاملة encode→decode، دمج البيانات، تقرير الطبيب، تفاعلات الطعام، تصدير QR
 - [x] `FOOD_INTERACTIONS` = 32 تفاعلاً (≥ 25 المطلوبة)
+
+---
+
+## تسليم: frontend-dev — الجولة التعليمية المبسطة (features-tour.js)
+
+### الملفات المنشأة/المعدلة
+- `features-tour.js` (جديد): الجولة التعليمية المبسطة كاملة — نافذة ترحيب + 12 خطوة تفاعلية + إبراز العناصر + إعادة تشغيل
+
+### الواجهات المتاحة للآخرين
+- `TOUR_STEPS`: مصفوفة 12 خطوة `{target, title, desc, icon}` — تغطي كل التبويبات + زر الإضافة + المساعد
+- `shouldShowTour()`: ترجع true إذا لم تُشاهد الجولة بعد (localStorage `STORAGE_KEY + "_tourDone"` غير موجود)
+- `markTourDone()`: تحفظ انتهاء الجولة في localStorage
+- `renderWelcomeModal()`: نافذة ترحيب أول استخدام — أيقونة + عنوان + زرا "ابدأ الجولة" و "تخطي"
+- `startTour()`: تبدأ الجولة خطوة بخطوة (طبقة تغطية + فقاعة شرح + إبراز + زر التالي/إنهاء/تخطي)
+- `restartTour()`: إعادة بدء الجولة (لزر المساعدة)
+- علم الجاهزية: `window.FEATURES_TOUR_READY = true`
+
+### القرارات المهمة
+- **ES5 خالص**: بدون let/const/arrow/async/template literals
+- **12 خطوة**: الترحيب (شاشة كاملة) + 9 تبويبات + زر الإضافة + المساعد — كل خطوة بإيقونة وعنوان وصف مبسط
+- **إبراز ديناميكي**: حدود متوهجة حول العنصر المستهدف (box-shadow) + position:absolute يتبع موقع العنصر
+- **فقاعة ذكية**: موقع تلقائي (فوق/أسفل/وسط) حسب موقع الهدف + منع التداخل مع حواف الشاشة
+- **لا تعديل HTML**: كل العناصر تُنشأ بـ document.createElement وتُضاف لـ document.body
+- **معيار STORAGE_KEY**: يتحقق `typeof STORAGE_KEY` قبل الاستخدام — يقع على "medReminder_v1" إذا لم يكن متاحاً
+- **معالجة أخطاء**: try/catch في كل دالة + دوال مساعدة داخلية (_prefix) للتنظيم
+
+### التحقق
+- [x] `node --check features-tour.js` — نجح بدون أخطاء (SYNTAX_OK)
+- [x] كل الدوال الـ 7 معرفة في النطاق العام (ALL_DEFINED: true)
+- [x] `window.FEATURES_TOUR_READY === true`
+- [x] ES5 خالص (0 let/const / 0 arrow / 0 template literals)
+- [x] 12 خطوة في TOUR_STEPS (≥ 10 المطلوبة)
+
+---
+
+## تسليم: frontend-dev — المساعد الشخصي الذكي (features-assistant.js)
+
+### الملفات المنشأة/المعدلة
+- `features-assistant.js` (جديد): المساعد الشخصي الذكي — محلل أسئلة مربوط ببيانات المستخدم الفعلية + فقاعة دردشة كاملة
+- `.opencode/context/progress.md` (معدل): إضافة قسم التسليم هذا
+
+### الواجهات المتاحة للآخرين
+- `personalAssistant(q)`: تحلل السؤال وتُرجع إجابة HTML من بيانات المستخدم الفعلية — 14 نمط إجابة
+- `renderAssistantPanel()`: ترسم لوحة دردشة كاملة في `#assistantPanel` (رأس + منطقة رسائل + أزرار أسئلة سريعة + مدخل نص + زر إرسال)
+- `openAssistantChat()`: تفتح لوحة الدردشة (تزيل hidden + ترسم إذا فارغة)
+- `closeAssistantChat()`: تُخفي لوحة الدردشة
+- `sendAssistantMessage()`: تقرأ المدخل → تضيف رسالة المستخدم → تستدعي personalAssistant → تعرض الرد
+- `askAssistantQuick(q)`: تستدعيها الأزرار السريعة (تضع النص في المدخل وترسل)
+- `ASSISTANT_QUICK_QUESTIONS`: مصفوفة 8 أسئلة سريعة جاهزة
+- علم الجاهزية: `window.FEATURES_ASSISTANT_READY = true`
+
+### أنماط الإجابة المدعومة (14 نمط)
+1. عدد/قائمة الأدوية النشطة (active !== false) مع الجرعات والجرعات/يوم
+2. أقرب جرعة قادمة اليوم (مقارنة times مع الوقت الحالي)
+3. الالتزام اليومي من log (taken/total + نسبة مئوية)
+4. تفاعلات الأدوية عبر DRUG_INTERACTIONS_DB (أزواج الأدوية النشطة)
+5. آخر قراءة ضغط + تصنيفها عبر classifyBp
+6. آخر 3 أعراض مسجلة
+7. أقرب موعد طبيب قادم
+8. أفراد العائلة + حساسياتهم + أمراضهم المزمنة
+9. التطعيمات المتبقية والمنجزة
+10. أدوية تنتهي خلال 30 يوماً عبر getExpiringMeds
+11. أدوية تحتاج إعادة تعبئة (quantity <= refill)
+12. معلومات عن دواء من getFullEncyclopedia
+13. فحص الأعراض عبر symptomChecker
+14. رد ذكي مقترح للأسئلة المتاحة (fallback)
+
+### القرارات المهمة
+- **ES5 خالص**: بدون let/const/arrow/async/template literals — متوافق مع المتصفحات القديمة
+- **14 نمط إجابة**: كل نمط بتحية مناسبة + محتوى من بيانات المستخدم + نصيحة ختامية
+- ** FTP — ترتيب الأنماط**: "تفاعلات" قبل "أدويتي" (حتى لا يلتقطها نمط العدد)، "تطعيمات" قبل "ما هي" (حتى لا يلتقطها نمط معلومات الدواء)
+- **تعقيم شامل**: `_assistantEsc()` لكل قيمة تُحقن في HTML — تستخدم escapeHtml العامة إن وُجدت أو fallback يدوي
+- **تنشئ حياً للعناصر**: زر الفقاعة العائم `#assistantFab` + لوحة `#assistantPanel` تُنشأ ديناميكياً إذا لم يُضفها القائد — لا تعديل HTML مطلوب
+- **CSS منزّل عبر JS**: أنماط اللوحة تُحقن كـ `<style>` مرة واحدة — متوافقة مع متغيرات CSS (variables) في index.html
+- ** TypeError**: كل دالة تبدأ بتحقق typeof للدوال الخارجية (escapeHtml, todayStr, formatTimeArabic, formatDateArabic, classifyBp, checkDrugInteractions, getExpiringMeds, symptomChecker, getFullEncyclopedia)
+- **معالجة أخطاء**: try/catch في كل دالة عامة + `if (!el) return;` في دوال الرسم
+- **مطابقة الأدوية المرنّة**: `_assistantNameMatch()` تجعل المطابقة جزئية (toContain) — تتوافق مع أسماء الأدوية العربية المختصرة
+
+### التحقق
+- [x] `node --check features-assistant.js` — نجح بدون أخطاء (SYNTAX_OK)
+- [x] كل الدوال الـ 7 معرفة في النطاق العام (ALL_DEFINED: true)
+- [x] `window.FEATURES_ASSISTANT_READY === true`
+- [x] ES5 خالص (بدون let/const/arrow/async/template literals — التحقق بعد إزالة التعليقات)
+- [x] اختبار وظيفي 15/15 في Node (vm): كل أنماط الإجابة الـ 14 + الرد الذكي
